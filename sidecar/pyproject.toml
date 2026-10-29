@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cairn_sidecar"
+version = "0.1.0"
+description = "Cairn sidecar: LLM calls (LiteLLM) and embeddings (ONNX Runtime) over stdio JSON-RPC"
+requires-python = ">=3.12"
+# Dependencies are pinned in requirements.lock, which is what the app bundles.
+dependencies = []
+
+[tool.setuptools]
+packages = ["cairn_sidecar"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,3 @@
+# The sample external folder keeps its bytes exactly (a CRLF file and a non-UTF-8 file are part of
+# what the tests read), whatever git's line-ending settings are.
+external-sample/** -text

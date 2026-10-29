@@ -1,0 +1,32 @@
+[workspace]
+resolver = "3"
+members = ["crates/cairn-core", "src-tauri"]
+# M0 experiments are standalone projects.
+exclude = ["poc"]
+
+[workspace.package]
+version = "0.17.0"
+edition = "2024"
+rust-version = "1.90"
+
+[workspace.dependencies]
+cairn-core = { path = "crates/cairn-core" }
+serde = { version = "1", features = ["derive"] }
+keyring = "4"
+serde_json = "1"
+thiserror = "2"
+tracing = "0.1"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v7"] }
+rusqlite = { version = "0.40", features = ["bundled"] }
+rusqlite_migration = "2.6"
+directories = "6"
+specta = { version = "=2.0.0-rc.25", features = ["derive"] }
+tempfile = "3"
+zip = { version = "8", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+base64 = "0.22"
+sha2 = "0.10"
+harper-core = "2.11"
+aho-corasick = "1"
+notify = "8.2.0"
+trash = "5.2.9"

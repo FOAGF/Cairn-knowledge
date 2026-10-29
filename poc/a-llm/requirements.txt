@@ -1,0 +1,10 @@
+azure-identity==1.26.0
+httpx==0.28.1
+litellm==1.105.0
+msal==1.39.0
+openai==2.54.0
+pydantic==2.14.1
+pytest==9.1.1
+tiktoken==0.14.0
+tokenizers==0.23.3
+tenacity==9.2.1

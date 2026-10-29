@@ -1,0 +1,245 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/inter";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+    --font-heading: var(--font-sans);
+    --font-sans: var(--app-font);
+    --color-tint-blue: var(--tint-blue);
+    --color-tint-blue-fg: var(--tint-blue-fg);
+    --color-tint-green: var(--tint-green);
+    --color-tint-green-fg: var(--tint-green-fg);
+    --color-tint-purple: var(--tint-purple);
+    --color-tint-purple-fg: var(--tint-purple-fg);
+    --color-tint-amber: var(--tint-amber);
+    --color-tint-amber-fg: var(--tint-amber-fg);
+    --color-tint-rose: var(--tint-rose);
+    --color-tint-rose-fg: var(--tint-rose-fg);
+    --color-tint-slate: var(--tint-slate);
+    --color-tint-slate-fg: var(--tint-slate-fg);
+    --color-surface: var(--surface);
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* ============================================================================
+   CAIRN DESIGN TOKENS
+   Tweak the look of the whole app here. Every colour, the font and the corner
+   radius used by components comes from these variables.
+   Light theme = :root, dark theme = .dark
+   ========================================================================== */
+:root {
+    /* Typography: Inter for Latin text, then common Chinese (CJK) fonts. */
+    --app-font: 'Inter Variable', 'Noto Sans CJK SC', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+
+    /* Corner radius for cards, inputs and buttons. */
+    --radius: 0.875rem;
+
+    /* Page and surfaces */
+    --background: oklch(0.985 0.004 250);   /* page background, very light blue-grey */
+    --surface: oklch(1 0 0);                /* top bar / panels */
+    --foreground: oklch(0.24 0.05 262);     /* main text, deep navy */
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.24 0.05 262);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.24 0.05 262);
+
+    /* Brand colour (buttons, active nav, links) */
+    --primary: oklch(0.55 0.2 262);
+    --primary-foreground: oklch(0.99 0 0);
+
+    --secondary: oklch(0.96 0.012 255);
+    --secondary-foreground: oklch(0.3 0.05 262);
+    --muted: oklch(0.965 0.008 255);
+    --muted-foreground: oklch(0.55 0.03 258);
+    --accent: oklch(0.95 0.025 258);
+    --accent-foreground: oklch(0.35 0.12 262);
+    --destructive: oklch(0.58 0.21 25);
+    --border: oklch(0.925 0.012 255);
+    --input: oklch(0.91 0.014 255);
+    --ring: oklch(0.65 0.15 262);
+
+    /* Pastel tints: soft backgrounds (tint) + matching icon/text colour (fg).
+       Used for stat cards, tags, category colours, priorities. */
+    --tint-blue: oklch(0.955 0.03 255);     --tint-blue-fg: oklch(0.5 0.19 262);
+    --tint-green: oklch(0.96 0.04 160);     --tint-green-fg: oklch(0.52 0.13 160);
+    --tint-purple: oklch(0.955 0.035 300);  --tint-purple-fg: oklch(0.5 0.19 300);
+    --tint-amber: oklch(0.97 0.05 85);      --tint-amber-fg: oklch(0.62 0.15 70);
+    --tint-rose: oklch(0.96 0.03 15);       --tint-rose-fg: oklch(0.57 0.19 20);
+    --tint-slate: oklch(0.955 0.008 255);   --tint-slate-fg: oklch(0.5 0.03 258);
+
+    --chart-1: oklch(0.55 0.2 262);
+    --chart-2: oklch(0.6 0.13 160);
+    --chart-3: oklch(0.55 0.19 300);
+    --chart-4: oklch(0.72 0.15 75);
+    --chart-5: oklch(0.6 0.19 20);
+    --sidebar: oklch(1 0 0);
+    --sidebar-foreground: oklch(0.24 0.05 262);
+    --sidebar-primary: oklch(0.55 0.2 262);
+    --sidebar-primary-foreground: oklch(0.99 0 0);
+    --sidebar-accent: oklch(0.95 0.025 258);
+    --sidebar-accent-foreground: oklch(0.35 0.12 262);
+    --sidebar-border: oklch(0.925 0.012 255);
+    --sidebar-ring: oklch(0.65 0.15 262);
+}
+
+.dark {
+    --background: oklch(0.17 0.02 262);
+    --surface: oklch(0.2 0.022 262);
+    --foreground: oklch(0.95 0.01 255);
+    --card: oklch(0.21 0.022 262);
+    --card-foreground: oklch(0.95 0.01 255);
+    --popover: oklch(0.22 0.022 262);
+    --popover-foreground: oklch(0.95 0.01 255);
+    --primary: oklch(0.68 0.16 262);
+    --primary-foreground: oklch(0.16 0.02 262);
+    --secondary: oklch(0.26 0.025 262);
+    --secondary-foreground: oklch(0.92 0.01 255);
+    --muted: oklch(0.25 0.022 262);
+    --muted-foreground: oklch(0.7 0.025 258);
+    --accent: oklch(0.28 0.04 262);
+    --accent-foreground: oklch(0.9 0.04 262);
+    --destructive: oklch(0.68 0.18 22);
+    --border: oklch(1 0 0 / 9%);
+    --input: oklch(1 0 0 / 13%);
+    --ring: oklch(0.6 0.14 262);
+
+    --tint-blue: oklch(0.3 0.06 262);       --tint-blue-fg: oklch(0.78 0.12 262);
+    --tint-green: oklch(0.3 0.05 160);      --tint-green-fg: oklch(0.78 0.12 160);
+    --tint-purple: oklch(0.3 0.06 300);     --tint-purple-fg: oklch(0.78 0.12 300);
+    --tint-amber: oklch(0.32 0.05 80);      --tint-amber-fg: oklch(0.82 0.12 80);
+    --tint-rose: oklch(0.3 0.06 20);        --tint-rose-fg: oklch(0.78 0.13 20);
+    --tint-slate: oklch(0.28 0.02 262);     --tint-slate-fg: oklch(0.78 0.02 258);
+
+    --chart-1: oklch(0.68 0.16 262);
+    --chart-2: oklch(0.7 0.12 160);
+    --chart-3: oklch(0.7 0.14 300);
+    --chart-4: oklch(0.8 0.13 80);
+    --chart-5: oklch(0.7 0.16 20);
+    --sidebar: oklch(0.2 0.022 262);
+    --sidebar-foreground: oklch(0.95 0.01 255);
+    --sidebar-primary: oklch(0.68 0.16 262);
+    --sidebar-primary-foreground: oklch(0.16 0.02 262);
+    --sidebar-accent: oklch(0.28 0.04 262);
+    --sidebar-accent-foreground: oklch(0.9 0.04 262);
+    --sidebar-border: oklch(1 0 0 / 9%);
+    --sidebar-ring: oklch(0.6 0.14 262);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    /* Dialogs, menus and tooltips fade out with tw-animate-css, whose default fill mode is
+       `none`: when the fade ends, WebKitGTK paints the element fully visible again for a few
+       frames before Radix removes it, so it flashes on closing. Keeping the animation's end
+       state removes that (and the start state before a fade-in begins). */
+    --tw-animation-fill-mode: both;
+    }
+  body {
+    @apply bg-background text-foreground;
+    }
+  button:not(:disabled), [role="button"]:not(:disabled) {
+    cursor: pointer;
+    }
+  html {
+    @apply font-sans;
+    }
+}
+/* ---------------------------------------------------------------------------
+   Custom category colours (D-40). The element sets `--category: #rrggbb`; these classes give it the
+   same roles as the preset tints (`bg-tint-*` + `text-tint-*-fg`): the chosen hue at the presets'
+   lightness for each theme, so any colour reads well in light and dark mode. The first
+   declaration is a plain mix for engines without relative colours.
+   ------------------------------------------------------------------------ */
+@layer components {
+  .tint-custom {
+    background-color: color-mix(in oklab, var(--category) 14%, var(--card));
+    color: color-mix(in oklab, var(--category) 70%, var(--foreground));
+    background-color: oklch(from var(--category) 0.955 min(c, 0.04) h);
+    color: oklch(from var(--category) 0.5 min(c, 0.19) h);
+  }
+  .tint-custom-soft {
+    background-color: color-mix(in oklab, var(--category) 7%, var(--card));
+    border-color: color-mix(in oklab, var(--category) 14%, var(--card));
+    background-color: oklch(from var(--category) 0.955 min(c, 0.04) h / 0.45);
+    border-color: oklch(from var(--category) 0.955 min(c, 0.04) h);
+  }
+  .dark .tint-custom {
+    background-color: oklch(from var(--category) 0.3 min(c, 0.07) h);
+    color: oklch(from var(--category) 0.78 min(c, 0.13) h);
+  }
+  .dark .tint-custom-soft {
+    background-color: oklch(from var(--category) 0.3 min(c, 0.07) h / 0.45);
+    border-color: oklch(from var(--category) 0.3 min(c, 0.07) h);
+  }
+}
+/* ---------------------------------------------------------------------------
+   Rendered Markdown (knowledge pages, task descriptions, comments, chat)
+   ------------------------------------------------------------------------ */
+@layer components {
+  .markdown-body {
+    @apply text-[0.95rem] leading-7 break-words;
+  }
+  .markdown-body > :first-child { @apply mt-0; }
+  .markdown-body h1 { @apply mt-6 mb-3 text-2xl font-semibold tracking-tight; }
+  .markdown-body h2 { @apply mt-6 mb-2 text-lg font-semibold; }
+  .markdown-body h3 { @apply mt-5 mb-2 text-base font-semibold; }
+  .markdown-body p { @apply my-3; }
+  .markdown-body ul { @apply my-3 list-disc pl-6; }
+  .markdown-body ol { @apply my-3 list-decimal pl-6; }
+  .markdown-body li { @apply my-1; }
+  .markdown-body li:has(> input[type='checkbox']) { @apply -ml-5 list-none; }
+  .markdown-body input[type='checkbox'] { @apply mr-2 accent-primary; }
+  .markdown-body a:not([class]) { @apply text-primary underline-offset-2 hover:underline; }
+  .markdown-body strong { @apply font-semibold; }
+  .markdown-body code { @apply rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em] text-tint-purple-fg; }
+  .markdown-body pre { @apply my-4 overflow-x-auto rounded-xl bg-muted p-4 text-sm leading-6; }
+  .markdown-body pre code { @apply bg-transparent p-0 text-foreground; }
+  /* D-63: a centred formula wider than the page scrolls sideways instead of overflowing. */
+  .markdown-body .katex-display { @apply my-4 overflow-x-auto overflow-y-hidden py-1; }
+  .markdown-body blockquote { @apply my-4 rounded-r-lg border-l-4 border-primary/40 bg-tint-blue px-4 py-2 text-muted-foreground; }
+  .markdown-body table { @apply my-4 w-full border-collapse overflow-hidden rounded-lg text-sm; }
+  .markdown-body th { @apply border-b bg-muted px-3 py-2 text-left font-medium; }
+  .markdown-body td { @apply border-b px-3 py-2; }
+  .markdown-body hr { @apply my-6; }
+  .markdown-body img { @apply my-3 max-w-full rounded-lg border; }
+}

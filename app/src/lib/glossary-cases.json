@@ -1,0 +1,35 @@
+{
+  "_comment": "FR-KN-GL-4 matching rules, shared by the Rust matcher (crates/cairn-core/src/glossary.rs tests) and the UI matcher (app/src/lib/glossary.ts self-check). Each case: the entry ids matched in text order, using the entries that apply to `category` (null = an item outside any category-specific glossary).",
+  "entries": [
+    { "id": "mmu", "term": "MMU", "otherNames": ["Mobile Manufacturing Unit"], "categoryId": null },
+    { "id": "an", "term": "AN", "otherNames": ["ammonium nitrate"], "categoryId": null },
+    { "id": "gu", "term": "固件", "otherNames": ["firmware"], "categoryId": null },
+    { "id": "vpn", "term": "vpn", "otherNames": [], "categoryId": null },
+    { "id": "staging", "term": "staging bucket", "otherNames": [], "categoryId": null },
+    { "id": "bucket", "term": "bucket", "otherNames": [], "categoryId": null },
+    { "id": "rag", "term": "RAG", "otherNames": [], "categoryId": null },
+    { "id": "sns-mmu", "term": "mmu", "otherNames": ["Memory Management Unit"], "categoryId": "p-sns" }
+  ],
+  "cases": [
+    { "text": "Washed the MMU today", "category": null, "ids": ["mmu"] },
+    { "text": "MMU-07 and MMUs", "category": null, "ids": ["mmu", "mmu"] },
+    { "text": "mmuse and summuary", "category": null, "ids": [] },
+    { "text": "an apple and an AN code", "category": null, "ids": ["an"] },
+    { "text": "ANSI and BAN", "category": null, "ids": [] },
+    { "text": "the mobile manufacturing unit", "category": null, "ids": ["mmu"] },
+    { "text": "the Mobile\nManufacturing  Unit", "category": null, "ids": ["mmu"] },
+    { "text": "check the Ammonium Nitrate tank", "category": null, "ids": ["an"] },
+    { "text": "更新固件版本", "category": null, "ids": ["gu"] },
+    { "text": "new Firmware release", "category": null, "ids": ["gu"] },
+    { "text": "Use the VPN or vpn", "category": null, "ids": ["vpn", "vpn"] },
+    { "text": "MMU_x and xMMU", "category": null, "ids": [] },
+    { "text": "(MMU), MMU. MMU!", "category": null, "ids": ["mmu", "mmu", "mmu"] },
+    { "text": "the staging bucket and a bucket", "category": null, "ids": ["staging", "bucket"] },
+    { "text": "RAG 检索论文", "category": null, "ids": ["rag"] },
+    { "text": "用RAG检索", "category": null, "ids": ["rag"] },
+    { "text": "MMU on the board", "category": "p-sns", "ids": ["sns-mmu"] },
+    { "text": "the memory management unit", "category": "p-sns", "ids": ["sns-mmu"] },
+    { "text": "the memory management unit", "category": null, "ids": [] },
+    { "text": "MMU on the board", "category": "p-other", "ids": ["mmu"] }
+  ]
+}

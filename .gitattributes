@@ -1,0 +1,5 @@
+# Prompt syntax and golden output are platform independent.
+/crates/cairn-core/prompts/** text eol=lf
+
+# Fixtures include deliberate CRLF and non-UTF-8 input.
+/crates/cairn-core/tests/fixtures/external-tests/** -text whitespace=cr-at-eol

@@ -1,0 +1,50 @@
+[package]
+name = "cairn"
+description = "Cairn desktop app: thin Tauri layer over cairn-core (docs/development.md, Layout)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lib]
+name = "cairn_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7.2", features = [] }
+
+[dependencies]
+cairn-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+base64.workspace = true
+chrono.workspace = true
+futures-util = { version = "0.3", default-features = false, features = ["alloc"] }
+tracing.workspace = true
+specta.workspace = true
+tauri = { version = "2.12.3", features = ["protocol-asset"] }
+tauri-specta = { version = "=2.0.0-rc.25", features = ["derive", "typescript"] }
+specta-typescript = "0.0.12"
+tauri-plugin-dialog = "2"
+tokio = { version = "1", features = ["rt", "macros", "process", "io-util", "sync", "time"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+tracing-appender = "0.2"
+url = "2.5"
+
+# Windows: the Job Object that ends the sidecar workers with Cairn (`winjob.rs`). The version is
+# the one Tauri already pulls in.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_Storage_FileSystem", "Win32_System_JobObjects", "Win32_System_Threading"] }
+
+# Free space before the search model is added (`search_model.rs`, D-82). The version is the one
+# other crates already pull in.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+# Linux: reading a pasted screenshot from the clipboard (`commands/clipboard.rs`), which WebKitGTK may
+# not hand to the page. The version is the one Tauri already pulls in.
+[target.'cfg(target_os = "linux")'.dependencies]
+gtk = "0.18"
+
+[dev-dependencies]
+tempfile.workspace = true

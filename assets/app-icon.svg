@@ -1,0 +1,10 @@
+<!-- Cairn app icon: the three stones of CairnLogo.tsx on a transparent background.
+     Solid colours (primary blended with white) instead of opacity, so it looks the same on any panel colour.
+     Regenerate the icon set with: cargo tauri icon assets/app-icon.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 32 32">
+  <g transform="translate(16 16) scale(1.1) translate(-16 -17.25)">
+    <rect x="3" y="21" width="26" height="8" rx="4" fill="#2867e4"/>
+    <rect x="7.5" y="13" width="18" height="6.5" rx="3.25" fill="#6895ec"/>
+    <rect x="10" y="5.5" width="11" height="6" rx="3" fill="#9ebbf3"/>
+  </g>
+</svg>

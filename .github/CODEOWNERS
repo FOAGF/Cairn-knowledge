@@ -1,0 +1,11 @@
+# Every change needs the maintainer's review; these paths are named so they stand out.
+*                              @FOAGF
+/crates/cairn-core/prompts/    @FOAGF
+/crates/cairn-core/migrations/ @FOAGF
+/packaging/                    @FOAGF
+/sidecar/requirements.lock     @FOAGF
+/app/package.json              @FOAGF
+/app/package-lock.json         @FOAGF
+/Cargo.toml                    @FOAGF
+/Cargo.lock                    @FOAGF
+/.github/                      @FOAGF

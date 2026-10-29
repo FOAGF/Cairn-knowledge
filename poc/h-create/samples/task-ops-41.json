@@ -1,0 +1,32 @@
+{
+  "key": "OPS-41",
+  "title": "MMU-07 auger hose keeps cracking",
+  "project": "Site operations",
+  "description": "The auger swivel hose on MMU-07 has split three times since August. Each time it fails at the elbow. Find out why and fix it properly.",
+  "comments": [
+    [
+      "2026-09-02",
+      "Will look at it tomorrow."
+    ],
+    [
+      "2026-09-03",
+      "Hose split again at the elbow. Replaced it with the same part (HX-2210). Noticed shiny wear marks on the boom clamp."
+    ],
+    [
+      "2026-09-04",
+      "Thanks!"
+    ],
+    [
+      "2026-09-10",
+      "Found it: with the auger slewed fully left, the hose rubs on the boom clamp. Moved the clamp 40 mm towards the cab and added a protective sleeve (part SL-75). Pressure tested at 12 bar for 5 min, no leak."
+    ],
+    [
+      "2026-09-24",
+      "Two weeks later, no new wear. MMU-03 and MMU-05 have the same clamp position, so check them at their next PM."
+    ],
+    [
+      "2026-09-25",
+      "ok"
+    ]
+  ]
+}

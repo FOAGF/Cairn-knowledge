@@ -1,0 +1,68 @@
+# Checks on every push to main and every pull request (CONTRIBUTING.md). Needs no secrets: a fork's
+# code runs with read-only access. Releases are not built here (make publish, on the maintainer's machine).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    name: Rust tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: System packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential pkg-config libwebkit2gtk-4.1-dev libdbus-1-dev librsvg2-dev
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Core tests
+        run: cargo test -p cairn-core
+      - name: App tests (regenerate the TypeScript bindings)
+        run: cargo test -p cairn
+      - name: The committed bindings are current
+        run: git diff --exit-code -- app/src/api/bindings.ts
+
+  ui:
+    name: UI checks
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - name: Type check
+        run: npx tsc --noEmit -p tsconfig.app.json
+      - name: Lint
+        run: npm run -s lint
+      - name: Interface text in the string table
+        run: node ../scripts/i18n-leftovers.mjs
+
+  sidecar:
+    name: Sidecar tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Development environment (LiteLLM checked against its pinned SHA-256; no search model)
+        run: scripts/setup-sidecar-dev.sh
+      - name: Tests (the ones that need the search model are skipped)
+        run: sidecar/.venv/bin/python -m pytest sidecar/tests -q

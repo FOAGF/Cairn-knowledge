@@ -1,0 +1,41 @@
+# Personal files, never committed: scratch notes and personal agent instructions
+/text
+/CLAUDE.local.md
+
+# M0 experiments: environments, downloads and build output
+poc/**/.venv/
+poc/**/models/
+poc/**/downloads/
+poc/**/build/
+poc/**/dist/
+poc/**/target/
+poc/**/node_modules/
+poc/**/__pycache__/
+poc/a-llm/config.toml
+poc/**/*.npy
+poc/**/*.xwd
+poc/**/out/
+poc/**/gen/schemas/
+
+# Rust build output (workspace)
+/target/
+
+# Tauri generated files
+/src-tauri/gen/schemas
+
+# Agent worktrees
+/.claude/worktrees/
+
+# AI worker (sidecar): development environment, model files, caches
+/sidecar/.venv/
+/sidecar/models/
+/sidecar/**/__pycache__/
+/sidecar/**/*.egg-info/
+/sidecar/.pytest_cache/
+
+# Release build (M7 part C): downloads, wheels, the staged bundle and the AppImage
+/packaging/cache/
+/packaging/build/
+
+# Editable local sample used by development builds. Automated tests use external-tests.
+/crates/cairn-core/tests/fixtures/external-sample/

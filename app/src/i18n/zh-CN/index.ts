@@ -1,0 +1,20 @@
+// The Simplified Chinese interface text, worded with docs/ui-terms-zh.md (NFR-I18N-2, D-79).
+import type { Messages } from '../en'
+import { common } from './common'
+import { labels } from './labels'
+import { dates } from './dates'
+import { layout } from './layout'
+import { shared } from './shared'
+import { editor } from './editor'
+import { home } from './home'
+import { tasks } from './tasks'
+import { knowledge } from './knowledge'
+import { creation } from './creation'
+import { assistant } from './assistant'
+import { categories } from './categories'
+import { glossary } from './glossary'
+import { settings } from './settings'
+import { storage } from './storage'
+import { searchModel } from './searchModel'
+
+export const zhCN: Messages = { common, labels, dates, layout, shared, editor, home, tasks, knowledge, creation, assistant, categories, glossary, settings, storage, searchModel }

@@ -1,0 +1,97 @@
+# Copy to config.toml (git-ignored is NOT assumed: keep it free of secrets anyway).
+# Secrets are never stored here: `key_env` names an environment variable; if it is unset,
+# live_check.py prompts for the key (hidden input). Entra targets need `az login` done beforehand.
+#
+# kind:   azure_classic  -> LiteLLM azure/ prefix, api_base = https://<resource>.openai.azure.com , api_version required
+#         foundry_v1     -> LiteLLM openai/ prefix, api_base = https://<resource>.openai.azure.com/openai/v1
+#         foundry_anthropic -> Claude hosted on Azure AI Foundry (Anthropic Messages format), LiteLLM azure_ai/ prefix,
+#                           api_base = https://<resource>.services.ai.azure.com/anthropic ; auth key or entra.
+#                           The deployment name must contain "claude" (LiteLLM routes on it).
+#         anthropic      -> LiteLLM anthropic/ prefix (api_base optional)
+#         openai_compat  -> LiteLLM openai/ prefix, any base URL (Ollama: http://localhost:11434/v1, LM Studio: http://localhost:1234/v1)
+# format: chat | responses            (anthropic is always chat)
+# auth:   key | entra                 (entra only for azure_classic / foundry_v1 / foundry_anthropic)
+# model:  Azure -> the DEPLOYMENT name; others -> model id
+# effort: true -> also test effort levels (set false for models that do not reason)
+# effort_levels: optional, the levels this model accepts (default ["low", "medium", "high"]),
+#                e.g. ["minimal", "low", "medium", "high"] for models that offer more
+# thinking_budgets: optional, Claude only: send thinking.budget_tokens per level instead of LiteLLM's mapping,
+#                e.g. { low = 1024, medium = 4096, high = 16000 }
+# image:  true -> also test image input (OCR-style)
+
+[[target]]
+name = "azure-classic-chat-key"
+kind = "azure_classic"
+format = "chat"
+model = "my-gpt-deployment"
+api_base = "https://YOUR-RESOURCE.openai.azure.com"
+api_version = "2025-04-01-preview"
+auth = "key"
+key_env = "AZURE_OPENAI_API_KEY"
+effort = true
+image = true
+
+[[target]]
+name = "azure-classic-responses-entra"
+kind = "azure_classic"
+format = "responses"
+model = "my-gpt-deployment"
+api_base = "https://YOUR-RESOURCE.openai.azure.com"
+api_version = "2025-04-01-preview"
+auth = "entra"
+effort = true
+image = true
+
+[[target]]
+name = "foundry-v1-chat-key"
+kind = "foundry_v1"
+format = "chat"
+model = "my-gpt-deployment"
+api_base = "https://YOUR-RESOURCE.openai.azure.com/openai/v1"
+auth = "key"
+key_env = "AZURE_OPENAI_API_KEY"
+effort = true
+image = true
+
+[[target]]
+name = "foundry-v1-responses-entra"
+kind = "foundry_v1"
+format = "responses"
+model = "my-gpt-deployment"
+api_base = "https://YOUR-RESOURCE.openai.azure.com/openai/v1"
+auth = "entra"
+effort = true
+image = true
+
+[[target]]
+name = "claude"
+kind = "anthropic"
+format = "chat"
+model = "claude-sonnet-4-5"
+auth = "key"
+key_env = "ANTHROPIC_API_KEY"
+effort = true
+image = true
+
+[[target]]
+name = "ollama"
+kind = "openai_compat"
+format = "chat"
+model = "llama3.2-vision"
+api_base = "http://localhost:11434/v1"
+auth = "key"
+key_env = "OLLAMA_API_KEY"      # Ollama ignores the key; press Enter at the prompt to use a dummy
+effort = false
+image = true
+
+[[target]]
+name = "foundry-claude-entra"
+kind = "foundry_anthropic"
+format = "chat"
+model = "claude-sonnet-4-5"          # your Claude DEPLOYMENT name on Foundry
+api_base = "https://YOUR-RESOURCE.services.ai.azure.com/anthropic"
+auth = "entra"
+effort = true
+effort_levels = ["low", "medium", "high"]
+# thinking_budgets = { low = 1024, medium = 4096, high = 16000 }   # optional custom mapping
+image = true

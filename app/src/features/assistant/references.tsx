@@ -8,6 +8,7 @@ import { pageLink } from '@/lib/mentions'
 import { type Suggestion, SuggestionList } from './SuggestionList'
 
 type Trigger = { kind: 'task' | 'page'; from: number; query: string }
+type PickedPage = { from: number; to: number; title: string; id: string }
 
 /** The trigger right before the caret: `#query` (not inside a word) or `[[query`. */
 export function triggerAt(text: string, caret: number): Trigger | null {
@@ -27,8 +28,25 @@ export function useReferences(text: string, setText: (t: string) => void, area: 
   const [trigger, setTrigger] = useState<Trigger | null>(null)
   const [items, setItems] = useState<Suggestion[] | null>(null)
   const [active, setActive] = useState(0)
-  // The pages picked into this message, by the title written in the box.
-  const picked = useRef(new Map<string, string>())
+  // Each occurrence has its own identity: two pages can have the same title.
+  const picked = useRef<PickedPage[]>([])
+  const previous = useRef(text)
+
+  useEffect(() => {
+    // A template or another caller replaced the box without going through `follow` or `pick`.
+    if (previous.current !== text) {
+      picked.current = []
+      previous.current = text
+    }
+  }, [text])
+
+  /** Move picks around an edit; a pick edited or removed loses its identity. */
+  const move = (from: number, to: number, length: number) => {
+    const shift = length - (to - from)
+    picked.current = picked.current.flatMap((p) =>
+      p.to <= from ? [p] : p.from >= to ? [{ ...p, from: p.from + shift, to: p.to + shift }] : [],
+    )
+  }
 
   const kind = trigger?.kind
   const query = trigger?.query
@@ -57,6 +75,22 @@ export function useReferences(text: string, setText: (t: string) => void, area: 
 
   /** Call after the text or the caret changed. */
   const follow = (value: string, caret: number) => {
+    const before = previous.current
+    if (before !== value) {
+      let from = 0
+      // Bound the old prefix before the insertion, even when it repeats the next character.
+      // Deleting the first of two equal references must likewise keep the second.
+      const limit = caret - Math.max(0, value.length - before.length)
+      while (from < limit && from < before.length && before[from] === value[from]) from++
+      let oldEnd = before.length
+      let end = value.length
+      while (oldEnd > from && end > from && before[oldEnd - 1] === value[end - 1]) {
+        oldEnd--
+        end--
+      }
+      move(from, oldEnd, end - from)
+      previous.current = value
+    }
     const next = triggerAt(value, caret)
     setTrigger(next)
     if (!next) setItems(null)
@@ -72,8 +106,10 @@ export function useReferences(text: string, setText: (t: string) => void, area: 
     // Swallow a "]]" already after the caret, so no stray brackets are left.
     const end = s.kind === 'page' && text.slice(caret, caret + 2) === ']]' ? caret + 2 : caret
     const insert = s.kind === 'task' ? `#${s.key} ` : `[[${s.title}]] `
-    if (s.kind === 'page') picked.current.set(s.title, s.id)
+    move(trigger.from, end, insert.length)
+    if (s.kind === 'page') picked.current.push({ from: trigger.from, to: trigger.from + insert.length - 1, title: s.title, id: s.id })
     const next = text.slice(0, trigger.from) + insert + text.slice(end)
+    previous.current = next
     setText(next)
     close()
     const at = trigger.from + insert.length
@@ -102,8 +138,11 @@ export function useReferences(text: string, setText: (t: string) => void, area: 
   /** The text to send: each picked `[[Title]]` as its page link. Forgets the picks. */
   const stored = (value: string) => {
     let out = value
-    for (const [title, id] of picked.current) out = out.split(`[[${title}]]`).join(pageLink(title, id))
-    picked.current.clear()
+    for (const p of [...picked.current].sort((a, b) => b.from - a.from)) {
+      if (value.slice(p.from, p.to) === `[[${p.title}]]`) out = out.slice(0, p.from) + pageLink(p.title, p.id) + out.slice(p.to)
+    }
+    picked.current = []
+    previous.current = ''
     return out
   }
   const list = open ? <SuggestionList kind={trigger.kind} items={items} active={active} onPick={pick} onHover={setActive} /> : null

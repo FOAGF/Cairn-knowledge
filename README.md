@@ -6,6 +6,9 @@ The interface is in English or Simplified Chinese, and every field accepts Chine
 
 Cairn is a personal project, shared as it is. It runs on **Ubuntu 24.04 or newer** and **Windows 11 (x64)**.
 
+## Warning
+This is a **Purely Vibe Coded Project** meant for relevantly small scale personal use. Proceed with caution.
+
 ## What it does
 
 - **Tasks:** statuses, priorities, due dates, labels, comments, links between tasks, a list and a board, and a short history of every change.

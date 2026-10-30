@@ -911,7 +911,7 @@ checksum = "26cf465651fa6ad902a2d327ba60c3a6bc61c6a2f4ad70d091cf20dfda0074ef"
 
 [[package]]
 name = "cairn"
-version = "0.17.0"
+version = "1.0.0"
 dependencies = [
  "base64 0.22.1",
  "cairn-core",
@@ -938,7 +938,7 @@ dependencies = [
 
 [[package]]
 name = "cairn-core"
-version = "0.17.0"
+version = "1.0.0"
 dependencies = [
  "aho-corasick",
  "base64 0.22.1",

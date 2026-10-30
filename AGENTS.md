@@ -9,7 +9,7 @@ These are the rules for any AI agent working in this repository (Claude Code rea
 | [docs/requirements.md](docs/requirements.md) | The spec: what Cairn does, one requirement per row, and the decisions behind them. The source of truth for behaviour. |
 | [docs/plan.md](docs/plan.md) | Open items and work in progress. |
 | [docs/development.md](docs/development.md) | Code layout, running the app, checks, probes, the sidecar, automation. |
-| [docs/building.md](docs/building.md) | Release builds and what each one downloads. |
+| [docs/building.md](docs/building.md) | Release builds (a basic and an advanced part, everything into `build/`), publishing a release, and what each command downloads. |
 | [app/README.md](app/README.md) | UI conventions. Read before changing anything in `app/`. |
 | [crates/cairn-core/prompts/README.md](crates/cairn-core/prompts/README.md) | The prompt template format and how templates are checked. |
 | [sidecar/PROTOCOL.md](sidecar/PROTOCOL.md) | The messages between Rust and the Python sidecar. |
@@ -25,7 +25,7 @@ These are the rules for any AI agent working in this repository (Claude Code rea
 ## Rules for the code
 
 - **Interface text** lives in `app/src/i18n/en/<area>.ts(x)` with its Chinese in `app/src/i18n/zh-CN/`, worded with `docs/ui-terms-zh.md`. Components read it with `const t = useT()`. Never write interface text in a component. Text Cairn stores as data, log lines and messages from the Rust core stay English.
-- **The schema only grows** (NFR-REL-6): a schema change is a new step appended in `crates/cairn-core/migrations/`; existing steps are never edited, folded or reordered. Data from 0.10.2 on must keep opening and importing.
+- **The schema only grows** (NFR-REL-6): a schema change is a new step appended in `crates/cairn-core/migrations/` (`NNNN_name.sql`, from `0011`); existing steps, `migrations/0.x/` and `migrations/1.0/` are never edited, folded or reordered. Folding happens only at a major version change (0.x → 1.0), and the folded-away steps stay frozen so older data keeps opening (D-86). Data from 0.10.2 on must keep opening and importing: a new step needs a compatibility fixture (`crates/cairn-core/tests/fixtures/compat/README.md`).
 - **Generated bindings:** `app/src/api/bindings.ts` is generated from Rust (`cargo test -p cairn --lib export_typescript_bindings`). Never edit it by hand.
 - **Prompt templates** (`crates/cairn-core/prompts/`): a new template, or a rewrite of one, is written by an Opus sub-agent at max effort, which also adds judges for it to `poc/h-create/llm_check.py` or `poc/i-assistant/llm_check.py`. After a template changes, run `sidecar/.venv/bin/python poc/h-create/golden.py`. Only the maintainer runs the live checks on real models; never use real endpoints or keys.
 - **Dependencies:** add one only with a reason in the pull request. LiteLLM is pinned by SHA-256 (`packaging/pip-pins.sh`); keep it that way.

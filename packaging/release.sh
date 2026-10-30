@@ -8,9 +8,9 @@
 #                                   selftest-lite) -> Cairn-lite_<version>_amd64.AppImage
 #   packaging/release.sh deb-lite   the lite Debian package (sidecar, notice-lite, deb-lite-only, selftest-deb-lite)
 #                                   -> Cairn-lite_<version>_amd64.deb (the package is still called cairn)
-#   packaging/release.sh sidecar    Python and the packages -> packaging/build/sidecar (online on a first run)
-#   packaging/release.sh model      the embedding model     -> packaging/build/models
-#   packaging/release.sh notice     the NOTICE file         -> packaging/build/NOTICE (offline)
+#   packaging/release.sh sidecar    Python and the packages -> build/stage/sidecar (online on a first run)
+#   packaging/release.sh model      the embedding model     -> build/stage/models
+#   packaging/release.sh notice     the NOTICE file         -> build/stage/NOTICE (offline)
 #   packaging/release.sh ui         only the UI build check (npm run build); `appimage` builds the UI itself
 #   packaging/release.sh appimage   the AppImage (Tauri runs the UI build first)
 #   packaging/release.sh selftest [FILE]  starts the AppImage once: the sidecar must answer and embedding must work
@@ -20,7 +20,7 @@
 #                                   the same steps for the lite packages: no models/, NOTICE without the Gemma section,
 #                                   and the self-test expects no model
 #
-# The lite and full files sit side by side in target/release/bundle/: building one keeps the other's file.
+# The finished packages go to build/ (D-85), the lite and full ones side by side: building one keeps the other's file.
 # Settings (environment): CAIRN_JOBS (cargo jobs, default 5), CAIRN_EMBED_MODEL_SRC (see build-model.sh),
 # CAIRN_APPIMAGE_FLAGS (extra arguments when the AppImage is started, e.g. none needed with libfuse2).
 # The heavy steps run at low priority (nice 10), so the machine stays usable.
@@ -31,10 +31,15 @@ REPO="$(cd "$HERE/.." && pwd)"
 cd "$REPO"
 
 VERSION="$(python3 -I -c 'import json;print(json.load(open("src-tauri/tauri.conf.json"))["version"])')"
-APPIMAGE="$REPO/target/release/bundle/appimage/Cairn_${VERSION}_amd64.AppImage"
-DEB="$REPO/target/release/bundle/deb/Cairn_${VERSION}_amd64.deb"
-APPIMAGE_LITE="$REPO/target/release/bundle/appimage/Cairn-lite_${VERSION}_amd64.AppImage"
-DEB_LITE="$REPO/target/release/bundle/deb/Cairn-lite_${VERSION}_amd64.deb"
+BUILD="$REPO/build"
+STAGE="$BUILD/stage"
+APPIMAGE="$BUILD/Cairn_${VERSION}_amd64.AppImage"
+DEB="$BUILD/Cairn_${VERSION}_amd64.deb"
+APPIMAGE_LITE="$BUILD/Cairn-lite_${VERSION}_amd64.AppImage"
+DEB_LITE="$BUILD/Cairn-lite_${VERSION}_amd64.deb"
+# Where Tauri writes them (full or lite: the name is the same), before they move to build/.
+TAURI_APPIMAGE="$REPO/target/release/bundle/appimage/Cairn_${VERSION}_amd64.AppImage"
+TAURI_DEB="$REPO/target/release/bundle/deb/Cairn_${VERSION}_amd64.deb"
 # The lite overlay goes on top of the release overlay: it drops models/ and maps NOTICE-lite to NOTICE (D-82).
 FULL_CONFIG=(--config packaging/tauri.release.conf.json)
 LITE_CONFIG=(--config packaging/tauri.release.conf.json --config packaging/tauri.release.lite.conf.json)
@@ -64,41 +69,32 @@ step_ui() {
 
 need_built() {
     local f
-    for f in packaging/build/sidecar/python/bin/python3 packaging/build/models/embeddinggemma-300m/tokenizer.json packaging/build/NOTICE; do
+    for f in "$STAGE/sidecar/python/bin/python3" "$STAGE/models/embeddinggemma-300m/tokenizer.json" "$STAGE/NOTICE"; do
         [ -e "$f" ] || { log "missing $f: run the 'sidecar', 'model' and 'notice' steps first"; exit 1; }
     done
 }
 need_built_lite() {
     local f
-    for f in packaging/build/sidecar/python/bin/python3 packaging/build/NOTICE-lite; do
+    for f in "$STAGE/sidecar/python/bin/python3" "$STAGE/NOTICE-lite"; do
         [ -e "$f" ] || { log "missing $f: run the 'sidecar' and 'notice-lite' steps first"; exit 1; }
     done
 }
 
-# tauri_bundle KIND OUT FINAL CONFIG...: `cargo tauri build --bundles KIND`, then OUT renamed to FINAL.
-# Tauri empties bundle/appimage before it builds an AppImage, and writes the .deb under the full name, so the
-# packages of earlier builds (full or lite) wait in a folder beside it and come back afterwards, except the
-# one this build replaces. An interrupted build leaves them there; the next build puts them back.
+# tauri_bundle KIND OUT FINAL CONFIG...: `cargo tauri build --bundles KIND`, then Tauri's OUT moved to FINAL in
+# build/ (D-85). Tauri writes full and lite under the same name and empties bundle/appimage before an AppImage
+# build; build/ is never touched by Tauri, so the packages of earlier builds stay there.
 tauri_bundle() {
-    local kind="$1" out="$2" final="$3" rc=0 f
+    local kind="$1" out="$2" final="$3"
     shift 3
-    local dir hold
-    dir="$(dirname "$out")"
-    hold="$dir.kept"
-    mkdir -p "$dir" "$hold"
-    find "$dir" -maxdepth 1 -type f \( -name '*.AppImage' -o -name '*.deb' \) -exec mv -f {} "$hold/" \;
     # The AppImage is laid out from a scratch Debian tree that Tauri doesn't empty first: one left by a failed
     # build could carry models/ into a lite AppImage (D-82).
     if [ "$kind" = appimage ]; then rm -rf target/release/bundle/appimage_deb; fi
-    CARGO_BUILD_JOBS="${CAIRN_JOBS:-5}" nice -n 10 cargo tauri build --bundles "$kind" "$@" || rc=$?
-    if [ "$rc" = 0 ] && [ -f "$out" ] && [ "$out" != "$final" ]; then mv -f "$out" "$final"; fi
-    for f in "$hold"/*; do
-        [ -e "$f" ] || continue
-        if [ "$rc" = 0 ] && [ -e "$dir/$(basename "$f")" ]; then rm -f "$f"; else mv -f "$f" "$dir/"; fi
-    done
-    rmdir "$hold"
-    [ "$rc" = 0 ] || { log "the Tauri build failed (exit code $rc)"; exit 1; }
-    [ -f "$final" ] || { log "expected $final, but it is not there"; ls -l "$dir" || true; exit 1; }
+    rm -f "$out"
+    CARGO_BUILD_JOBS="${CAIRN_JOBS:-5}" nice -n 10 cargo tauri build --bundles "$kind" "$@" \
+        || { log "the Tauri build failed"; exit 1; }
+    [ -f "$out" ] || { log "expected $out, but it is not there"; ls -l "$(dirname "$out")" || true; exit 1; }
+    mkdir -p "$BUILD"
+    mv -f "$out" "$final"
 }
 
 step_appimage() {
@@ -107,7 +103,7 @@ step_appimage() {
     log "building the AppImage (UI build, release compile, bundling); this takes a few minutes"
     # --config merges the release overlay: identifier app.cairn.desktop and the bundled sidecar, model and NOTICE.
     # The UI build is Tauri's beforeBuildCommand. No `npm ci` here.
-    tauri_bundle appimage "$APPIMAGE" "$APPIMAGE" "${FULL_CONFIG[@]}"
+    tauri_bundle appimage "$TAURI_APPIMAGE" "$APPIMAGE" "${FULL_CONFIG[@]}"
 }
 
 step_deb() {
@@ -116,7 +112,7 @@ step_deb() {
     log "building the Debian package (UI build, release compile, packaging); this takes a few minutes"
     # The same overlay as the AppImage, so both share one compile. The package uses the system's GTK and
     # WebKit (Tauri adds them to Depends) and installs the program as /usr/bin/cairn, its files in /usr/lib/Cairn.
-    tauri_bundle deb "$DEB" "$DEB" "${FULL_CONFIG[@]}"
+    tauri_bundle deb "$TAURI_DEB" "$DEB" "${FULL_CONFIG[@]}"
 }
 
 # The lite packages (NFR-INS-1b, D-82): no models/, NOTICE-lite as NOTICE. Tauri embeds its configuration in
@@ -125,14 +121,14 @@ step_appimage_lite() {
     need_tools
     need_built_lite
     log "building the lite AppImage (no search model); this takes a few minutes"
-    tauri_bundle appimage "$APPIMAGE" "$APPIMAGE_LITE" "${LITE_CONFIG[@]}"
+    tauri_bundle appimage "$TAURI_APPIMAGE" "$APPIMAGE_LITE" "${LITE_CONFIG[@]}"
 }
 
 step_deb_lite() {
     need_tools
     need_built_lite
     log "building the lite Debian package (no search model); this takes a few minutes"
-    tauri_bundle deb "$DEB" "$DEB_LITE" "${LITE_CONFIG[@]}"
+    tauri_bundle deb "$TAURI_DEB" "$DEB_LITE" "${LITE_CONFIG[@]}"
 }
 
 # check_selftest full|lite JSON [FOLDER]: the self-test's last line (JSON) must say ok, from Cairn's own Python.

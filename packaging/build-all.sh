@@ -1,17 +1,21 @@
 #!/usr/bin/env bash
-# packaging/build-all.sh (`make`): from a fresh copy of the source to both release files in one command,
-# the Linux AppImage (packaging/release.sh) and the Windows zip (packaging/release-windows.sh).
+# packaging/build-all.sh (`make`, `make release-for-publish`): from a fresh copy of the source to the release
+# files in one command, all in build/. `make`: the Linux AppImage (packaging/release.sh) and the Windows zip
+# (packaging/release-windows.sh). `make release-for-publish`: the four files `make publish` uploads (D-87).
 #
-#   packaging/build-all.sh [STEP...]    default: every step below, in this order
+#   packaging/build-all.sh [STEP...]    default: the first six steps below, in this order
 #     check    the tools and system packages that need a manual or administrator install; stops with
 #              the commands to run when one is missing (nothing is installed with sudo)
-#     tools    for this user, when missing (ONLINE STEP): the Tauri command line tool, and for Windows
+#     tools    for this user, when missing or older (ONLINE STEP): the Tauri command line tool, and for Windows
 #              cargo-xwin and the Rust target x86_64-pc-windows-msvc
 #     npm      `npm ci` in app/ when app/node_modules is missing (ONLINE STEP)
 #     model    packaging/fetch-model.sh when no copy of the model is found (ONLINE STEP, about 200 MB)
 #     linux    packaging/release.sh: sidecar, model, NOTICE, AppImage, self-test
 #     windows  packaging/release-windows.sh: sidecar, model, NOTICE, cairn.exe, zip
+#     deb, deb-lite, windows-lite   the Debian packages and the lite zip, as make release-deb,
+#              release-deb-lite and release-windows-lite build them
 #   Linux only: packaging/build-all.sh check tools npm model linux
+#   For make publish: packaging/build-all.sh check tools npm model deb deb-lite windows windows-lite
 #
 # The first run downloads a lot (README "Building: what goes online"); later runs download nothing.
 # Settings: CAIRN_JOBS (cargo jobs, default 5) and those of the release scripts. The heavy steps run
@@ -23,15 +27,15 @@ REPO="$(cd "$HERE/.." && pwd)"
 cd "$REPO"
 
 WIN_TARGET=x86_64-pc-windows-msvc
-TAURI_CLI_VERSION=2.12.2    # the versions the release was built with
+TAURI_CLI_VERSION=2.12.4    # the versions the release is built with; an older install is upgraded
 XWIN_VERSION=0.23.1
 log() { echo "[build-all] $*"; }
 
 STEPS=("$@")
 [ ${#STEPS[@]} -gt 0 ] || STEPS=(check tools npm model linux windows)
 wants() { local s; for s in "${STEPS[@]}"; do [ "$s" = "$1" ] && return 0; done; return 1; }
-# The Windows tools are checked and installed only when the Windows build is one of the steps.
-windows_too() { wants windows; }
+# The Windows tools are checked and installed only when a Windows build is one of the steps.
+windows_too() { wants windows || wants windows-lite; }
 
 load_path() {
     # cargo and node are normally on the PATH of a login shell; this makes `make` work from any shell.
@@ -73,8 +77,9 @@ step_check() {
         for p in "${pkgs[@]}"; do
             dpkg-query -W -f='${Status}' "$p" 2>/dev/null | grep -q "ok installed" || missing_pkgs+=("$p")
         done
-        # FUSE 2 runs the AppImage tools and the self-test; Ubuntu 24.04 calls the package libfuse2t64.
-        if ! dpkg-query -W -f='${Status}' libfuse2t64 2>/dev/null | grep -q "ok installed" \
+        # FUSE 2 runs the AppImage tools and the self-test (the linux step); Ubuntu 24.04 calls it libfuse2t64.
+        if wants linux \
+           && ! dpkg-query -W -f='${Status}' libfuse2t64 2>/dev/null | grep -q "ok installed" \
            && ! dpkg-query -W -f='${Status}' libfuse2 2>/dev/null | grep -q "ok installed"; then
             missing_pkgs+=(libfuse2t64)
         fi
@@ -94,12 +99,14 @@ step_check() {
 
 step_tools() {
     local jobs="${CAIRN_JOBS:-5}"
-    if ! cargo tauri --version >/dev/null 2>&1; then
+    # `cargo tauri --version` prints "tauri-cli 2.12.4"; `cargo-xwin --version` prints "cargo-xwin 0.23.1".
+    have() { "$@" --version 2>/dev/null | awk '{print $2}'; }
+    if ! at_least "$(have cargo tauri)" "$TAURI_CLI_VERSION"; then
         log "ONLINE STEP: installing the Tauri command line tool $TAURI_CLI_VERSION (cargo install, a few minutes)"
         nice -n 10 cargo install tauri-cli --version "$TAURI_CLI_VERSION" --locked --jobs "$jobs"
     fi
     if windows_too; then
-        if ! command -v cargo-xwin >/dev/null 2>&1; then
+        if ! at_least "$(have cargo-xwin)" "$XWIN_VERSION"; then
             log "ONLINE STEP: installing cargo-xwin $XWIN_VERSION (cargo install, a few minutes)"
             nice -n 10 cargo install cargo-xwin --version "$XWIN_VERSION" --locked --jobs "$jobs"
         fi
@@ -133,24 +140,39 @@ step_model() {
 
 step_linux()   { "$HERE/release.sh"; }
 step_windows() { "$HERE/release-windows.sh"; }
+step_deb()     { "$HERE/release.sh" deb-all; }
+step_deb_lite()     { "$HERE/release.sh" deb-lite; }
+step_windows_lite() { "$HERE/release-windows.sh" lite; }
 
 load_path
 began=$(date +%s)
 for s in "${STEPS[@]}"; do
     case "$s" in
-        check|tools|npm|model|linux|windows) log "== $s"; "step_$s" ;;
-        -h|--help|help) sed -n '2,19p' "${BASH_SOURCE[0]}"; exit 0 ;;
-        *) echo "unknown step '$s'; try: check tools npm model linux windows" >&2; exit 2 ;;
+        check|tools|npm|model|linux|windows|deb|deb-lite|windows-lite) log "== $s"; "step_${s//-/_}" ;;
+        -h|--help|help) sed -n '2,22p' "${BASH_SOURCE[0]}"; exit 0 ;;
+        *) echo "unknown step '$s'; try: check tools npm model linux windows deb deb-lite windows-lite" >&2; exit 2 ;;
     esac
 done
 
 VERSION="$(python3 -I -c 'import json;print(json.load(open("src-tauri/tauri.conf.json"))["version"])')"
 log "done in $(( ($(date +%s) - began) / 60 )) min"
 if wants linux; then
-    f="target/release/bundle/appimage/Cairn_${VERSION}_amd64.AppImage"
+    f="build/Cairn_${VERSION}_amd64.AppImage"
     log "Linux:   $REPO/$f ($(du -h "$f" | cut -f1)); install it with: make install"
 fi
 if wants windows; then
-    f="packaging/build/windows/Cairn-${VERSION}-windows-x64.zip"
+    f="build/Cairn-${VERSION}-windows-x64.zip"
     log "Windows: $REPO/$f ($(du -h "$f" | cut -f1)); unzip it on Windows outside OneDrive and read README.txt"
+fi
+for s in deb deb-lite windows-lite; do
+    wants "$s" || continue
+    case "$s" in
+        deb)          f="build/Cairn_${VERSION}_amd64.deb" ;;
+        deb-lite)     f="build/Cairn-lite_${VERSION}_amd64.deb" ;;
+        windows-lite) f="build/Cairn-${VERSION}-windows-x64-lite.zip" ;;
+    esac
+    log "$s: $REPO/$f ($(du -h "$f" | cut -f1))"
+done
+if wants deb && wants deb-lite && wants windows && wants windows-lite; then
+    log "next: check-windows.ps1 on the zip on Windows, then make publish"
 fi

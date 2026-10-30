@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # packaging/build-sidecar.sh (NFR-INS-1, D-46): builds the sidecar bundle, i.e. Python with the
-# sidecar's packages, trimmed as M0-d found. Output: packaging/build/sidecar/python/
+# sidecar's packages, trimmed as M0-d found. Output: build/stage/sidecar/python/
 # (the app runs `<resources>/sidecar/python/bin/python3 -I -m cairn_sidecar`).
 #
 # Steps:
-#   1. python-build-standalone (pinned tag, sha256 checked). Taken from packaging/cache/, else
+#   1. python-build-standalone (pinned tag, sha256 checked). Taken from build/cache/, else
 #      copied from the M0 download, else DOWNLOADED (the first online step).
-#   2. The wheels from sidecar/requirements.lock: `pip download` into packaging/cache/wheels
+#   2. The wheels from sidecar/requirements.lock: `pip download` into build/cache/wheels
 #      (the second online step, only when that folder is not complete), LiteLLM's wheel checked
 #      against its sha256 (pip-pins.sh), then an offline `pip install --no-index --no-deps`.
 #      The sidecar's own package is copied in.
@@ -29,8 +29,8 @@ FILE="cpython-${PY}+${TAG}-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz
 SHA256=ffa8f85f1b56e88b687f08d743d817015524b86a9365fd921243132b80f1a36d
 URL="https://github.com/astral-sh/python-build-standalone/releases/download/${TAG}/${FILE//+/%2B}"
 
-CACHE="$HERE/cache"
-OUT="$HERE/build/sidecar"
+CACHE="$REPO/build/cache"
+OUT="$REPO/build/stage/sidecar"
 LOCK="$REPO/sidecar/requirements.lock"
 WHEELS="$CACHE/wheels"
 PYLIB="$OUT/python/lib/python3.12"

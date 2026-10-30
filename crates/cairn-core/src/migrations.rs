@@ -1,8 +1,18 @@
-//! Database schema (NFR-REL-3). Each step creates one area of the schema in its current form; the
-//! version is kept in SQLite's `user_version` (= the number of steps applied).
-//! Later changes are new steps appended at the end; never edit a released step. The upgrade steps
-//! of Cairn 0.10.1 and earlier were removed (D-66). Released 0.9 databases reused version 9;
-//! their verified layout is equivalent to step 6 and is bridged explicitly before upgrading.
+//! Database schema (NFR-REL-3, NFR-REL-6). The version is kept in SQLite's `user_version`: step N
+//! brings a database to version N. Versions keep counting across folds, so a version always means
+//! one layout. Three sets of SQL (D-86):
+//!
+//! - `migrations/0.x/`: Cairn 0.x's steps 1 to 10, frozen. They bring data made by 0.x up to
+//!   version 10, 0.x's last layout, and are never changed.
+//! - `migrations/1.0/`: the schema at 1.0, one file per area, each creating its tables in their
+//!   current form. A new database is made from these ([`create_at`]) and is then at version 10
+//!   ([`BASELINE`]); `the_schema_at_1_0_equals_0x_steps` proves they make what 0.x's steps make.
+//! - [`STEPS`] (`migrations/NNNN_name.sql`): the steps after 1.0, from version 11. Later changes
+//!   are new steps appended there; never edit a released step. Steps are folded only when the
+//!   major version changes, and the folded-away ones are kept frozen like 0.x's.
+//!
+//! The upgrade steps of Cairn 0.10.1 and earlier were removed (D-66). Released 0.9 databases reused
+//! version 9; their verified layout is equivalent to step 6 and is bridged explicitly before upgrading.
 //!
 //! **Steps that rebuild a table** other tables refer to ([`REBUILD_STEPS`]) run with foreign keys
 //! off, as SQLite's procedure for such changes requires: with them on, dropping the old table would
@@ -12,48 +22,76 @@
 //! `PRAGMA foreign_key_check` before it commits (`M::foreign_key_check`). The connection's own
 //! setting is put back afterwards.
 
+use std::sync::LazyLock;
+
 use rusqlite::Connection;
 use rusqlite_migration::{M, Migrations};
 
 use crate::Result;
 
-/// Every migration step (SQL), oldest first. Append new steps at the end.
-const STEPS: &[&str] = &[
+/// Cairn 0.x's steps, versions 1 to 10, frozen (D-86): only for data made by 0.x.
+const STEPS_0X: &[&str] = &[
     // Categories (with the built-in General category) and settings.
-    include_str!("../migrations/0001_foundation.sql"),
+    include_str!("../migrations/0.x/0001_foundation.sql"),
     // Tasks, labels, key aliases, links, comments, daily history, activity.
-    include_str!("../migrations/0002_tasks.sql"),
+    include_str!("../migrations/0.x/0002_tasks.sql"),
     // Groups, pages, tags, page history, task-page links, mentions, attachments, drafts, search index.
-    include_str!("../migrations/0003_knowledge.sql"),
+    include_str!("../migrations/0.x/0003_knowledge.sql"),
     // AI providers and models, the vector index (chunks with float32 vectors).
-    include_str!("../migrations/0004_ai.sql"),
+    include_str!("../migrations/0.x/0004_ai.sql"),
     // The glossary and its "used in" index.
-    include_str!("../migrations/0005_glossary.sql"),
+    include_str!("../migrations/0.x/0005_glossary.sql"),
     // Saved conversations, text from uploaded files, ignored glossary terms.
-    include_str!("../migrations/0006_conversations.sql"),
+    include_str!("../migrations/0.x/0006_conversations.sql"),
     // D-67: the model and effort picked in a conversation.
-    include_str!("../migrations/0007_conversation_model.sql"),
+    include_str!("../migrations/0.x/0007_conversation_model.sql"),
     // D-68: archived conversations.
-    include_str!("../migrations/0008_conversation_archive.sql"),
+    include_str!("../migrations/0.x/0008_conversation_archive.sql"),
     // D-69: DeepSeek as a provider kind (providers rebuilt for its CHECK; models kept).
-    include_str!("../migrations/0009_deepseek_provider.sql"),
+    include_str!("../migrations/0.x/0009_deepseek_provider.sql"),
     // D-72: external knowledge mode (pages and groups rebuilt: paths, nested groups, file stamps).
-    include_str!("../migrations/0010_external_knowledge.sql"),
+    include_str!("../migrations/0.x/0010_external_knowledge.sql"),
 ];
+
+/// The schema at 1.0, one file per area, in this order: what a new database is made from (D-86).
+const AREAS_1_0: &[&str] = &[
+    // Categories (with the built-in General category) and settings.
+    include_str!("../migrations/1.0/1_foundation.sql"),
+    // Tasks, labels, key aliases, links, comments, daily history, activity.
+    include_str!("../migrations/1.0/2_tasks.sql"),
+    // Groups, pages, tags, page history, task-page links, mentions, attachments, drafts, search
+    // index, removed files of external mode.
+    include_str!("../migrations/1.0/3_knowledge.sql"),
+    // AI providers and models, the vector index (chunks with float32 vectors).
+    include_str!("../migrations/1.0/4_ai.sql"),
+    // The glossary and its "used in" index.
+    include_str!("../migrations/1.0/5_glossary.sql"),
+    // Saved conversations, text from uploaded files, ignored glossary terms.
+    include_str!("../migrations/1.0/6_conversations.sql"),
+];
+
+/// The version [`AREAS_1_0`] make: the last of 0.x, whose layout they equal.
+const BASELINE: usize = 10;
+const _: () = assert!(STEPS_0X.len() == BASELINE);
+
+/// The steps after 1.0, from version 11 (`migrations/NNNN_name.sql`), oldest first. Append new steps
+/// at the end.
+const STEPS: &[&str] = &[];
 
 /// The steps (numbered from 1, as `user_version` counts them) that rebuild tables and must run with
 /// foreign keys off. See the module comment.
 const REBUILD_STEPS: &[usize] = &[10];
 
-/// The SQL of every step, oldest first (tests build longer lists from it).
-#[cfg(test)]
+/// The SQL of every step, oldest first: 0.x's, then those after 1.0 (tests build longer lists from it).
 pub(crate) fn steps() -> &'static [&'static str] {
-    STEPS
+    static ALL: LazyLock<Vec<&'static str>> =
+        LazyLock::new(|| STEPS_0X.iter().chain(STEPS).copied().collect());
+    &ALL
 }
 
 pub fn migrations() -> Migrations<'static> {
     Migrations::new(
-        STEPS
+        steps()
             .iter()
             .enumerate()
             .map(|(i, sql)| {
@@ -67,9 +105,13 @@ pub fn migrations() -> Migrations<'static> {
     )
 }
 
-/// Brings `conn` to the latest version with [`migrate_to`].
+/// Brings `conn` to the latest version: a new database with [`create_at`], existing data with
+/// [`migrate_to`].
 pub fn migrate(conn: &mut Connection) -> Result<()> {
     let from = source_version(conn)?;
+    if from == 0 {
+        return create_at(conn, &migrations(), latest_version() as usize);
+    }
     // Db::open makes the backup before this bridge changes the recorded version.
     let actual: u32 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     if from != actual {
@@ -170,9 +212,30 @@ pub(crate) fn migrate_to(conn: &mut Connection, migs: &Migrations<'_>, target: u
     result
 }
 
-/// Schema version the code expects (= number of steps).
+/// Makes version `target` in an empty database (D-86): from the schema at 1.0 and the steps after it
+/// when `target` is 1.0's version or later, else from 0.x's steps (the import of an older export
+/// builds the export's own version first).
+pub(crate) fn create_at(conn: &mut Connection, migs: &Migrations<'_>, target: usize) -> Result<()> {
+    let version: u32 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
+    if version != 0 {
+        return Err(crate::CoreError::Invalid(format!(
+            "Cannot make a new schema over version {version}."
+        )));
+    }
+    if target >= BASELINE {
+        let tx = conn.transaction()?;
+        for sql in AREAS_1_0 {
+            tx.execute_batch(sql)?;
+        }
+        tx.pragma_update(None, "user_version", BASELINE as u32)?;
+        tx.commit()?;
+    }
+    migrate_to(conn, migs, target)
+}
+
+/// Schema version the code expects (= number of steps, 0.x's included).
 pub fn latest_version() -> u32 {
-    STEPS.len() as u32
+    steps().len() as u32
 }
 
 #[cfg(test)]
@@ -213,6 +276,140 @@ pub(crate) mod tests {
         assert!(migrate(&mut c).is_err());
         assert_eq!(c.query_row("PRAGMA user_version", [], |r| r.get::<_, u32>(0)).unwrap(), 9);
         assert!(c.prepare("SELECT path FROM pages").is_err());
+    }
+
+    /// Every object's SQL without comments, quotes around names and layout, by type and name, so the
+    /// same definition written two ways (a step's `ALTER TABLE`, a table renamed) compares equal.
+    fn schema_sql(c: &Connection) -> Vec<(String, String, Option<String>)> {
+        let normal = |sql: String| {
+            let words: Vec<String> = sql
+                .lines()
+                .map(|l| l.split("--").next().unwrap_or("").replace('"', ""))
+                .collect();
+            let mut text = words
+                .join(" ")
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ");
+            for p in ["(", ")", ","] {
+                text = text
+                    .replace(&format!(" {p}"), p)
+                    .replace(&format!("{p} "), p);
+            }
+            text
+        };
+        c.prepare("SELECT type, name, sql FROM sqlite_master ORDER BY type, name")
+            .unwrap()
+            .query_map([], |r| {
+                Ok((
+                    r.get(0)?,
+                    r.get(1)?,
+                    r.get::<_, Option<String>>(2)?.map(normal),
+                ))
+            })
+            .unwrap()
+            .collect::<std::result::Result<_, _>>()
+            .unwrap()
+    }
+
+    /// Every table's rows, sorted, with the times they were made left out.
+    fn all_rows(c: &Connection) -> Vec<(String, Vec<String>)> {
+        let tables: Vec<String> = c
+            .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND sql NOT LIKE 'CREATE VIRTUAL%' ORDER BY name")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<std::result::Result<_, _>>()
+            .unwrap();
+        let mut out = Vec::new();
+        for t in tables {
+            let mut stmt = c.prepare(&format!("SELECT * FROM \"{t}\"")).unwrap();
+            let names: Vec<String> = stmt.column_names().iter().map(|n| n.to_string()).collect();
+            let mut rows: Vec<String> = stmt
+                .query_map([], |r| {
+                    Ok((0..names.len())
+                        .map(|i| {
+                            if names[i].ends_with("_at") {
+                                "<time>".into()
+                            } else {
+                                format!("{:?}", r.get_ref(i).unwrap())
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                        .join(", "))
+                })
+                .unwrap()
+                .collect::<std::result::Result<_, _>>()
+                .unwrap();
+            rows.sort();
+            out.push((t, rows));
+        }
+        out
+    }
+
+    /// D-86: the schema at 1.0 makes exactly what 0.x's steps make: every table, column,
+    /// constraint, index and row (the General category), at the same version.
+    #[test]
+    fn the_schema_at_1_0_equals_0x_steps() {
+        let mut stepped = Connection::open_in_memory().unwrap();
+        migrate_to(&mut stepped, &migrations(), BASELINE).unwrap();
+        let mut folded = Connection::open_in_memory().unwrap();
+        create_at(&mut folded, &migrations(), BASELINE).unwrap();
+        assert_eq!(schema_sql(&folded), schema_sql(&stepped));
+        assert_eq!(all_rows(&folded), all_rows(&stepped));
+        for c in [&folded, &stepped] {
+            assert_eq!(
+                c.query_row("PRAGMA user_version", [], |r| r.get::<_, u32>(0))
+                    .unwrap(),
+                BASELINE as u32
+            );
+            assert_eq!(
+                c.query_row("PRAGMA foreign_key_check", [], |_| Ok(())).ok(),
+                None
+            );
+        }
+    }
+
+    /// D-86: a new database is made from the schema at 1.0, not from 0.x's steps (which leave
+    /// `pages` renamed, as `"pages"`), and data from 0.x still takes 0.x's steps.
+    #[test]
+    fn a_new_database_is_made_from_the_schema_at_1_0() {
+        let pages_sql = |c: &Connection| -> String {
+            c.query_row(
+                "SELECT sql FROM sqlite_master WHERE name = 'pages'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap()
+        };
+        let mut new = Connection::open_in_memory().unwrap();
+        migrate(&mut new).unwrap();
+        assert!(
+            pages_sql(&new).starts_with("CREATE TABLE pages ("),
+            "{}",
+            pages_sql(&new)
+        );
+
+        let mut old = Connection::open_in_memory().unwrap();
+        migrations().to_version(&mut old, 9).unwrap();
+        migrate(&mut old).unwrap();
+        assert!(
+            pages_sql(&old).starts_with("CREATE TABLE \"pages\""),
+            "{}",
+            pages_sql(&old)
+        );
+        assert_eq!(
+            old.query_row("PRAGMA user_version", [], |r| r.get::<_, u32>(0))
+                .unwrap(),
+            latest_version()
+        );
+    }
+
+    #[test]
+    fn create_at_refuses_a_database_with_a_schema() {
+        let mut c = Connection::open_in_memory().unwrap();
+        migrations().to_version(&mut c, 2).unwrap();
+        assert!(create_at(&mut c, &migrations(), BASELINE).is_err());
     }
 
     #[test]

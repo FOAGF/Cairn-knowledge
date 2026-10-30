@@ -5,7 +5,7 @@
 # token. Files that are already there and match are kept, so a second run downloads nothing.
 # The model is under the Gemma Terms of Use (packaging/licenses/GEMMA_TERMS_OF_USE.txt).
 #
-#   packaging/fetch-model.sh [FOLDER]    default: packaging/cache/embeddinggemma-300m
+#   packaging/fetch-model.sh [FOLDER]    default: build/cache/embeddinggemma-300m
 #
 # build-model.sh runs it when no other copy of the model is found.
 set -euo pipefail

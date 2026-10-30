@@ -7,7 +7,8 @@ How the real app is built and how to work on it. What to build is in [requiremen
 ```
 Cargo.toml              cargo workspace (shared target/ at the repo root)
 crates/cairn-core/      synchronous core: database, domain logic, export/import (no Tauri)
-  migrations/           schema steps, NNNN_name.sql, listed in src/migrations.rs
+  migrations/           the schema (src/migrations.rs, D-86): 0.x/ the frozen steps of 0.x, 1.0/ the schema
+                        at 1.0 (one file per area), NNNN_name.sql the steps after 1.0
 src-tauri/              thin Tauri layer: async commands, events, logging, app state
   src/commands/<area>.rs  one file per area; register each command in src/lib.rs specta_builder()
 app/                    React UI (from the prototype)
@@ -19,22 +20,24 @@ sidecar/                Python AI worker (M4): LLM calls and the search model; P
   tests/                pytest suite (mock LLM servers, real model when linked)
   tools/live_check.py   owner-run check against real endpoints (poc/a-llm/config.toml format)
 packaging/              release, install and audit scripts, the release overlay config (see "Release files")
+build/                  everything the release scripts make (git-ignored): release files, stage/, cache/
 ```
 
 ## Release files
 
-`make release`, `make install` and `make audit` are explained in [README.md](../README.md). The files are in `packaging/` (they may move to a separate release repository later):
+`make release`, `make install` and `make audit` are explained in [building.md](building.md). The scripts are in `packaging/` (they may move to a separate release repository later); what they make goes to `build/` (D-85): the release files at its top, the staged pieces in `build/stage/`, the downloads in `build/cache/`.
 
 ```
 packaging/release.sh          the release steps: sidecar, model, notice, ui, appimage, selftest
-packaging/build-sidecar.sh    python-build-standalone + the lock's wheels, pruned -> packaging/build/sidecar/
-packaging/build-model.sh      the search model, sha256 checked -> packaging/build/models/
-packaging/notice.py           the NOTICE file (Gemma terms + third-party licences) -> packaging/build/NOTICE
+packaging/build-sidecar.sh    python-build-standalone + the lock's wheels, pruned -> build/stage/sidecar/
+packaging/build-model.sh      the search model, sha256 checked -> build/stage/models/
+packaging/notice.py           the NOTICE file (Gemma terms + third-party licences) -> build/stage/NOTICE
 packaging/tauri.release.conf.json  overlay for `cargo tauri build --config` (AppImage and .deb): identifier, bundled resources, package details
 packaging/install.sh, audit.sh
+packaging/publish.sh          `make publish`: the packages in build/ as a draft GitHub release, with SHA256SUMS and notes (D-87)
 
 packaging/release-windows.sh        the Windows steps: sidecar, model, notice, ui, exe, zip (`make release-windows`)
-packaging/build-sidecar-windows.sh  Windows Python + the Windows wheels, pruned, compiled files only -> packaging/build/windows/sidecar/
+packaging/build-sidecar-windows.sh  Windows Python + the Windows wheels, pruned, compiled files only -> build/stage/windows/sidecar/
 packaging/tauri.release.windows.conf.json  overlay for the Windows build: the release identifier (no bundle, so no resources)
 packaging/windows/                  files that go into the zip: README.txt, check-windows.ps1, ui-check.js
 ```
@@ -45,20 +48,20 @@ packaging/windows/                  files that go into the zip: README.txt, chec
   - If you ever build a debug binary with the release overlay (`cargo tauri build --debug --no-bundle --config packaging/tauri.release.conf.json`), the resources are copied to `target/debug/` and win over the dev setup from then on. Delete `target/debug/sidecar`, `target/debug/models` and `target/debug/NOTICE` afterwards.
 - **Paths in a Tauri config** (the base config and the overlay) are relative to `src-tauri/`, not to the folder of the config file or the repo root. That is why the UI build hook says `"cwd": "../app"`.
 - **Self-test:** `target/debug/cairn --self-test` (or `CAIRN_SELF_TEST=1`) starts the sidecar from the resolved paths, embeds one sentence and prints one JSON line (`"ok": true` and exit 0, or `"ok": false` and exit 1). No window opens. With a debug build, give it the dev variables (see Run). `make release` runs it on the finished AppImage with a throw-away data folder.
-- **Bundle check without the network:** `CAIRN_SITE_PACKAGES_FROM=sidecar/.venv/lib/python3.12/site-packages CAIRN_PBS_TARBALL=<tarball> packaging/build-sidecar.sh` builds the bundle from the dev venv's copies of the locked packages instead of running pip. To run the sidecar tests with the bundle's Python, put pytest (and pygments, pluggy, iniconfig) on `PYTHONPATH` from the dev venv: `PYTHONPATH=<dir with those> packaging/build/sidecar/python/bin/python3 -m pytest sidecar/tests`.
+- **Bundle check without the network:** `CAIRN_SITE_PACKAGES_FROM=sidecar/.venv/lib/python3.12/site-packages CAIRN_PBS_TARBALL=<tarball> packaging/build-sidecar.sh` builds the bundle from the dev venv's copies of the locked packages instead of running pip. To run the sidecar tests with the bundle's Python, put pytest (and pygments, pluggy, iniconfig) on `PYTHONPATH` from the dev venv: `PYTHONPATH=<dir with those> build/stage/sidecar/python/bin/python3 -m pytest sidecar/tests`.
 - **Changing the sidecar's dependencies:** edit `sidecar/requirements.lock` (the wheels are fetched again by the next `make release`), then check the pruning list in `build-sidecar.sh`: its import smoke test fails if something it removes is needed.
 - **LiteLLM's wheels are pinned by sha256** in `packaging/pip-pins.sh` (its PyPI releases were hijacked twice in 2026: 1.82.7/1.82.8 in March, 1.107.0 on 2026-10-21). Both sidecar builds and `setup-sidecar-dev.sh` stop if the wheel doesn't match, or if the lock's `litellm` version differs from the pinned one. To bump LiteLLM, change the lock line and the pins together: take the new wheel names and sha256 values from `https://pypi.org/pypi/litellm/<version>/json`, and wait a few days after a release before taking it.
 
 ### Windows release files (M8)
 
-`make release-windows` builds `packaging/build/windows/Cairn-<version>-windows-x64.zip` on Linux (D-55 to D-59). Rebuild it with the same command (or one step, `packaging/release-windows.sh <step>`); the first run goes online for the Python tarball and the Windows wheels (see README.md), later runs do not.
+`make release-windows` builds `build/Cairn-<version>-windows-x64.zip` on Linux (D-55 to D-59). Rebuild it with the same command (or one step, `packaging/release-windows.sh <step>`); the first run goes online for the Python tarball and the Windows wheels (see [building.md](building.md)), later runs do not.
 
-- **`sidecar`:** `build-sidecar-windows.sh` unpacks the pinned Windows Python (`packaging/cache/`), runs the dev venv's pip (`pip download` and `pip install --target` with `--platform win_amd64 --python-version 3.12 --only-binary=:all: --no-deps`) and copies `cairn_sidecar` into `Lib\site-packages`. Then it prunes as the Linux script does (plus tcl/tk, test extension modules, type stubs, numpy headers) and compiles **compiled files only** (D-57): every `.py` becomes an unchecked-hash `.pyc` beside it (`compileall -b`, built by the Linux Python 3.12, whose bytecode is the same) and the `.py` is deleted. `KEEP_PY` in the script lists any `.py` that must stay (none so far; nothing in the locked packages reads a `.py` as data). It also checks that no locked package lacks a Windows wheel and that no Windows-only dependency is missing from the lock (only `colorama`, which tqdm uses if present, is). The import smoke test cannot run on Linux: `cairn.exe --self-test` on Windows is the test.
+- **`sidecar`:** `build-sidecar-windows.sh` unpacks the pinned Windows Python (`build/cache/`), runs the dev venv's pip (`pip download` and `pip install --target` with `--platform win_amd64 --python-version 3.12 --only-binary=:all: --no-deps`) and copies `cairn_sidecar` into `Lib\site-packages`. Then it prunes as the Linux script does (plus tcl/tk, test extension modules, type stubs, numpy headers) and compiles **compiled files only** (D-57): every `.py` becomes an unchecked-hash `.pyc` beside it (`compileall -b`, built by the Linux Python 3.12, whose bytecode is the same) and the `.py` is deleted. `KEEP_PY` in the script lists any `.py` that must stay (none so far; nothing in the locked packages reads a `.py` as data). It also checks that no locked package lacks a Windows wheel and that no Windows-only dependency is missing from the lock (only `colorama`, which tqdm uses if present, is). The import smoke test cannot run on Linux: `cairn.exe --self-test` on Windows is the test.
 - **`exe`:** `cargo tauri build --runner cargo-xwin --target x86_64-pc-windows-msvc --no-bundle --config packaging/tauri.release.windows.conf.json`. With `--no-bundle` Tauri copies no resources, so the `zip` step lays out the folder itself: `cairn.exe`, `sidecar/python/`, `models/embeddinggemma-300m/`, `NOTICE` (from `notice.py --windows`: Windows Python licence and `dist-info` folders, Rust crates for the Windows target), and the three files from `packaging/windows/`.
 - **`zip`:** Python's `zipfile`, files sorted, fixed time stamps, the text files with Windows line endings (`README.txt` and `check-windows.ps1` must stay plain ASCII). It refuses to add anything called `data`, `config.json` or `settings.json` (D-58). The folder name and zip name come from the version in `src-tauri/tauri.conf.json`.
 - **Running `ui-check.js` on Linux** (what the check script runs inside the window on Windows): start a release build with `CAIRN_AUTOMATION=1 CAIRN_DATA_DIR=<empty folder> CAIRN_DEV_SCRIPT_FILE=packaging/windows/ui-check.js CAIRN_DEV_SCRIPT_AFTER=load CAIRN_AUTOMATION_OUT=<file> CAIRN_EXIT_AFTER_SECS=120 target/release/cairn`. Every line is `PASS`/`FAIL` with its time, then `DONE`.
 - **Testing the compiled-only bundle here** (what Windows runs; this found the LiteLLM `.env` failure that the normal tests can't see):
-  1. Copy `packaging/build/sidecar` to a scratch folder.
+  1. Copy `build/stage/sidecar` to a scratch folder.
   2. Compile it with its own Python (`python3 -I -m compileall -q -b --invalidation-mode unchecked-hash <lib/python3.12>`), then delete every `.py`, and compile the current `sidecar/cairn_sidecar` into its `site-packages` in the same way.
   3. Copy `sidecar/tests` next to it. In `helpers.py`, start the sidecar as Cairn does: `[sys.executable, "-I", "-m", "cairn_sidecar", "--role", role]`. Give `test_m5.py`'s `SAMPLES` an absolute path.
   4. Run `pytest` with that Python and `PYTHONPATH` pointing at a folder holding links to only `pytest`, `_pytest`, `pluggy`, `iniconfig` and `pygments` from `sidecar/.venv`.
@@ -178,7 +181,7 @@ sidecar/.venv/bin/python -m pytest sidecar/tests -q   # sidecar tests (about 50 
 
 ## Adding a feature end to end
 
-1. **Schema:** add `crates/cairn-core/migrations/NNNN_name.sql` and append it to `STEPS` in `src/migrations.rs`. Never edit a step that has been committed. The schema version is the number of steps (6 after D-66, which folded the old upgrade steps into one file per area); NNNN is the version the step brings the database to.
+1. **Schema:** add `crates/cairn-core/migrations/NNNN_name.sql` (the first is `0011`) and append it to `STEPS` in `src/migrations.rs`. Never edit a step that has been committed, nor anything in `migrations/0.x/` or `migrations/1.0/`. Steps are folded only at a major version change (D-86, NFR-REL-6). A new step needs a compatibility fixture for its schema version ([crates/cairn-core/tests/fixtures/compat/README.md](../crates/cairn-core/tests/fixtures/compat/README.md)). The schema version counts every step, 0.x's included, so it goes on from 10 (the schema at 1.0 makes version 10, D-86); NNNN is the version the step brings the database to.
 2. **Core:** add a module in `crates/cairn-core/src/` (e.g. `categories.rs`) with plain functions that take `&Connection` or `&mut Db`, and return `cairn_core::Result<T>`.
    - Domain structs derive `Serialize, Deserialize, specta::Type` with `#[serde(rename_all = "camelCase")]`.
    - Timestamps are `String` (ISO 8601 UTC from `util::now_iso()`), and new ids come from `util::new_id()`.

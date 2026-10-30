@@ -49,7 +49,7 @@ A copy with no data opens on Home with two choices: **Start fresh**, or **Import
 
 ## Building it yourself
 
-`make` builds everything from a fresh copy of the source, including the AppImage, which is not published. [docs/building.md](docs/building.md) lists what you need, every command, and what each one downloads.
+`make` builds everything from a fresh copy of the source into `build/`, including the AppImage, which is not published. [docs/building.md](docs/building.md) says what you need and how to build and install, then lists every command and what each one downloads.
 
 ## Documents
 

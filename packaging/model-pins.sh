@@ -15,8 +15,8 @@ MODEL_SIZES="519322  onnx/model_q4.onnx
 196725760  onnx/model_q4.onnx_data
 20323312  tokenizer.json"
 
-# Where packaging/fetch-model.sh puts the files (git ignores packaging/cache).
-MODEL_CACHE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/cache/embeddinggemma-300m"
+# Where packaging/fetch-model.sh puts the files (git ignores build/; `make clean` keeps build/cache).
+MODEL_CACHE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/build/cache/embeddinggemma-300m"
 
 # True when FOLDER holds every pinned file (their sha256 is checked where they are used).
 model_files_in() {

@@ -15,6 +15,9 @@ JPEG_QUALITY = 85
 
 KINDS = {".md": "text", ".txt": "text", ".pdf": "pdf", ".docx": "docx",
          ".png": "image", ".jpg": "image", ".jpeg": "image"}
+# Pillow picks a decoder by the file's content, not its name: a file named .png could reach any of
+# its decoders (JPEG 2000, TIFF, PSD, ...). Only the two that uploads use are allowed.
+IMAGE_FORMATS = ("PNG", "JPEG")
 
 
 def bad_file(why):
@@ -59,7 +62,7 @@ def extract(path, kind, out_dir, max_edge=DEFAULT_MAX_EDGE, dpi=DEFAULT_DPI):
         return {"kind": "pdf", "pages": len(parts), "parts": parts}
     from PIL import Image
     os.makedirs(out_dir, exist_ok=True)
-    with Image.open(path) as img:
+    with Image.open(path, formats=IMAGE_FORMATS) as img:
         part = write_jpeg(img, os.path.join(out_dir, "image.jpg"), max_edge)
     return {"kind": "image", "pages": 1, "parts": [{"page": 1, **part}]}
 

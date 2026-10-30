@@ -22,7 +22,7 @@
 use std::path::PathBuf;
 use std::time::Instant;
 
-use cairn_core::Db;
+use cairn_core::{DataPaths, Db};
 use cairn_core::error::CoreError;
 use cairn_core::glossary::{self, NewGlossaryEntry};
 use cairn_core::knowledge::{self, NewGroup, NewPage};
@@ -320,7 +320,7 @@ fn usage(why: &str) -> ! {
 
 fn main() -> cairn_core::Result<()> {
     let args = parse_args();
-    if args.dir.join("cairn.db").exists() {
+    if DataPaths::new(&args.dir).db_file().exists() {
         eprintln!(
             "measure_data: {} already holds data; use an empty folder",
             args.dir.display()

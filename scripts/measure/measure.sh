@@ -6,7 +6,7 @@
 #   scripts/measure/measure.sh [APPIMAGE] [--pages N] [--tasks N] [--mock-port P] [--out FILE|-]
 #                              [--cpu-secs S] [--rounds R] [--keep]
 #
-# APPIMAGE defaults to the newest one under src-tauri/target/release/bundle/appimage/ (a plain
+# APPIMAGE defaults to the newest full one in build/ (a plain
 # binary also works, for testing). Everything else goes to measure.py (`measure.py --help`).
 # MEASURE_DATA_BIN=<path> uses an already built measure_data example instead of building the
 # release one.
@@ -21,7 +21,7 @@ if [ $# -gt 0 ] && [[ "$1" != --* ]]; then
 fi
 if [ -z "$target" ]; then
   # The full AppImage: a lite one (NFR-INS-1b) has no search model to measure.
-  target=$(ls -t src-tauri/target/release/bundle/appimage/*.AppImage target/release/bundle/appimage/*.AppImage 2>/dev/null | grep -v '/Cairn-lite_' | head -n 1 || true)
+  target=$(ls -t build/*.AppImage 2>/dev/null | grep -v '/Cairn-lite_' | head -n 1 || true)
 fi
 if [ -z "$target" ] || [ ! -f "$target" ]; then
   echo "measure: no AppImage found. Build one with 'make release', or pass the file as the first argument." >&2

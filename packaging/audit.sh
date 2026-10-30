@@ -17,7 +17,7 @@ cd "$REPO"
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 if ! command -v npm >/dev/null 2>&1 && [ -s "$HOME/.nvm/nvm.sh" ]; then . "$HOME/.nvm/nvm.sh"; fi
 
-AUDIT_VENV="$HERE/cache/audit-venv"      # pip-audit lives here, apart from the sidecar's packages
+AUDIT_VENV="$REPO/build/cache/audit-venv"      # pip-audit lives here, apart from the sidecar's packages
 log() { echo "[audit] $*"; }
 
 ask() {   # ask "question" -> 0 for yes; anything but y/yes is no

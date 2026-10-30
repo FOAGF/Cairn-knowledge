@@ -7,9 +7,9 @@
     "shortDescription": "Notes and tasks, with an assistant",
     "longDescription": "Cairn keeps knowledge pages and tasks together on this computer, with search by meaning and an AI assistant.",
     "resources": {
-      "../packaging/build/sidecar/": "sidecar/",
-      "../packaging/build/models/": "models/",
-      "../packaging/build/NOTICE": "NOTICE"
+      "../build/stage/sidecar/": "sidecar/",
+      "../build/stage/models/": "models/",
+      "../build/stage/NOTICE": "NOTICE"
     },
     "linux": {
       "deb": {

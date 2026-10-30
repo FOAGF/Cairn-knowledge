@@ -458,9 +458,8 @@ speed doesn't depend on what the vectors say, and the real model still embeds ea
 
 ## How to run it
 
-`make measure` (or `scripts/measure/measure.sh [AppImage]`). It uses the newest AppImage under
-`src-tauri/target/release/bundle/appimage/`, loads the CPU for several minutes and needs a screen (the app opens its
-window while it runs). Run it only when the machine is free. Options and details are in `scripts/measure/measure.sh`.
+`make measure` (or `scripts/measure/measure.sh [AppImage]`). It uses the newest full AppImage in `build/`, loads
+the CPU for several minutes and needs a screen (the app opens its window while it runs). Run it only when the machine is free. Options and details are in `scripts/measure/measure.sh`.
 
 ## How to read it
 

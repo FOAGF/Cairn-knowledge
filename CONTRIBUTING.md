@@ -8,9 +8,14 @@ Cairn is a personal project shared as it is. Issues and pull requests are welcom
 - Read the requirement rows your change touches in [docs/requirements.md](docs/requirements.md). A change in behaviour updates those rows in the same pull request.
 - How to set up, run and check the app is in [docs/development.md](docs/development.md).
 
+## Branches
+
+- **`develop`** collects the merged pull requests for the next version. Pre-releases are made from it.
+- **`main`** holds only official releases. When a version is ready, the maintainer merges `develop` into `main` and makes the official release from there.
+
 ## A pull request
 
-- Targets `main`, with one topic per pull request.
+- Targets `develop`, never `main`, with one topic per pull request.
 - Passes the checks below; CI runs them too.
 - Interface text goes into both `app/src/i18n/en/` and `app/src/i18n/zh-CN/`. If you can't write the Chinese, say so and the maintainer will add it.
 - A change to a prompt template in `crates/cairn-core/prompts/` is checked by the maintainer on real models before it is merged, so expect that to take longer.
@@ -33,11 +38,12 @@ If `cargo test -p cairn` changes `app/src/api/bindings.ts`, commit the new file.
 
 Set once in the repository's Settings on GitHub:
 
-1. **Rules › Rulesets › New branch ruleset**, target `main`:
+1. **General › Default branch:** `develop`, so new pull requests target it.
+2. **Rules › Rulesets › New branch ruleset**, targets `main` and `develop`:
    - *Require a pull request before merging*, with 1 approval and *Require review from Code Owners*;
    - *Require status checks to pass*: add the CI checks after their first run;
    - *Block force pushes* and *Restrict deletions*.
-2. **Actions › General › Fork pull request workflows from outside collaborators:** *Require approval for first-time contributors* (or for all outside collaborators).
-3. **Advanced Security:** turn on Dependabot alerts.
+3. **Actions › General › Fork pull request workflows from outside collaborators:** *Require approval for first-time contributors* (or for all outside collaborators).
+4. **Advanced Security:** turn on Dependabot alerts.
 
 CI uses the `pull_request` trigger only, so a fork's code runs with read-only access and no secrets. The workflows need no secrets at all, and none may be added: live model checks run on the maintainer's machine.

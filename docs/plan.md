@@ -8,14 +8,18 @@ v1.0 is the first stable version. The scope is in requirements.md (NFR-REL-6, NF
 
 - **Idle memory:** measure a fresh start and an idle state after use (search, editing, an Assistant answer) on a release build; then options for the maintainer to choose from (WebKit's cache and memory settings, unloading the search worker sooner, what the app process keeps after use). Nothing changes before the maintainer picks.
 - **Publishing:** `make publish` is written (D-87; docs/building.md, "Publishing a release"). The GitHub command line tool is installed (2.45.0, which has every option `publish.sh` uses) and `origin` is https://github.com/FOAGF/Cairn-knowledge.git (2026-10-30). Still to do: `gh auth login`, push, then rehearse with a pre-release of the current 0.x when the maintainer says so.
-- **Repository settings** on GitHub: CONTRIBUTING.md, "For the maintainer".
-- **The 1.0 release:** the next release from `main` is 1.0, because the schema fold (D-86) is a 1.0 change. Its version-table row (§9.4, which `make publish` also takes the notes from) covers what changed since 0.17.0 (2026-10-29 and 30, not yet committed):
+- **Repository settings** on GitHub: CONTRIBUTING.md, "For the maintainer" (the default branch is `develop`, set 2026-10-30).
+- **The 1.0 release:** the next official release (`develop` merged into `main`, CONTRIBUTING.md) is 1.0, because the schema fold (D-86) is a 1.0 change. Its version-table row (§9.4, which `make publish` also takes the notes from) covers what changed since 0.17.0 (2026-10-29 and 30, not yet committed):
   - every build into `build/` (D-85), `make clean`, docs/building.md in a basic and an advanced part; `make` upgrades a Tauri command line tool or `cargo-xwin` older than the pinned version;
   - the schema folded (D-86): 0.x's steps frozen in `migrations/0.x/`, the schema at 1.0 in `migrations/1.0/`, versions counting on from 10; compatibility fixtures for schemas 6 to 10 and one in external knowledge mode (`crates/cairn-core/tests/compat.rs`);
   - `make publish` (D-87), and `make release-for-publish` for the four files it uploads;
   - KaTeX 0.18.10 (through an npm override, FR-KN-ED), Pillow 13.0.0 with uploaded images read only as PNG or JPEG (FR-KN-UP-1), certifi 2026.10.19, ammonia 4.2.4, rustls-webpki 0.103.16, webpki-roots 1.0.11, ctutils 0.4.7, pulldown-cmark 0.13.5, inout 0.2.5, Tauri command line tool 2.12.4;
   - fixes: `measure_data` refuses a folder that holds data (it looked for `cairn.db`); `scripts/setup-sidecar-dev.sh` makes the model folder only when the model is complete.
 - **The first full builds after these changes:** `make release-for-publish` (both `.deb` packages and both Windows zips) is the first build with the `build/` layout and with Pillow 13 in the sidecar bundles (the import smoke test, the pruning list, the Windows wheels). Then `check-windows.ps1` on the new zip.
+
+## After v1.0
+
+- **Releases built on GitHub:** the maintainer wants to explore GitHub Actions building and publishing releases, instead of `make publish` on their own machine (D-80, D-87). Until then, `make publish` publishes from any branch and marks a release as a pre-release only while the version is 0.x, so a pre-release from `develop` after 1.0 is marked by hand (docs/building.md, "Publishing a release"). Things to settle then: pre-release version numbers (`1.1.0-rc.1`, since the official `v1.1.0` needs its own tag); a release workflow needs `contents: write` for its own `GITHUB_TOKEN` and must never run on pull requests (CONTRIBUTING.md allows no secrets); the Windows zip is cross-built with `cargo-xwin`, and `check-windows.ps1` still runs on a real Windows machine.
 
 ## The maintainer's checks
 

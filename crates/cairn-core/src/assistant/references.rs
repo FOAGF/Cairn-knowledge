@@ -9,7 +9,8 @@
 
 use rusqlite::Connection;
 
-use crate::assistant::items::ItemRef;
+use crate::assistant::formats::ItemInfo;
+use crate::assistant::items::{self, ItemRef};
 use crate::{Result, knowledge, mentions, tasks};
 
 /// The items `text` refers to that exist, in order of first appearance, pages before tasks; none twice.
@@ -44,6 +45,27 @@ pub fn for_model(conn: &Connection, text: &str) -> String {
         &mut |id| knowledge::get_page(conn, id).ok().map(|p| format!("[[{}]]", p.title)),
         &mut |_| None,
     )
+}
+
+/// The referenced items as source text for a draft revision. The caller fits this together with
+/// the original source, so references share its context budget rather than bypassing it.
+pub fn source_text(conn: &Connection, text: &str) -> Result<String> {
+    let mut blocks = Vec::new();
+    for item in items::load(conn, &items(conn, text)?)? {
+        let mut body = match &item {
+            ItemInfo::Page(p) => p.body.clone(),
+            ItemInfo::Task(t) => {
+                let mut body = t.description.clone();
+                for comment in tasks::comments(conn, &t.id)? {
+                    body.push_str(&format!("\n\nComment {}:\n{}", comment.created_at, comment.text));
+                }
+                body
+            }
+        };
+        body = for_model(conn, &body);
+        blocks.push(format!("{}\n{body}", item.head()));
+    }
+    Ok(blocks.join("\n\n"))
 }
 
 #[cfg(test)]
@@ -113,6 +135,7 @@ mod tests {
         let e = env();
         let text = format!("#ZZ-9, [Gone](page:nope) and `#{}`", e.task.key);
         assert!(items(e.db.conn(), &text).unwrap().is_empty());
+        assert!(source_text(e.db.conn(), &text).unwrap().is_empty());
     }
 
     #[test]

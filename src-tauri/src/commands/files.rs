@@ -30,6 +30,7 @@ use std::sync::{Arc, Mutex};
 
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
+use cairn_core::assistant::references;
 use cairn_core::chunking::estimate_tokens;
 use cairn_core::conversations::{
     self, ChatAttachment, ChatMessage, ChatRole, ChatStep, DraftCard, DraftState, FileKind,
@@ -1659,6 +1660,7 @@ async fn revise_job(
     progress: &mut Progress,
 ) -> Result<Done, JobError> {
     let (conversation_id, assistant_id) = (job.conversation_id.clone(), job.assistant_id.clone());
+    let request = job.request.clone();
     let loaded = ctx
         .state
         .with_db(move |db| {
@@ -1690,7 +1692,7 @@ async fn revise_job(
                     } else {
                         Role::Assistant
                     };
-                    LlmMessage::new(role, m.text.clone())
+                    LlmMessage::new(role, references::for_model(db.conn(), &m.text))
                 })
                 .collect();
             // The request itself is the last user message.
@@ -1702,13 +1704,15 @@ async fn revise_job(
                 card_message.id.clone(),
                 card.clone(),
                 file,
-                instruction,
+                references::for_model(db.conn(), &instruction),
                 earlier,
+                references::for_model(db.conn(), &request),
+                references::source_text(db.conn(), &request)?,
             )))
         })
         .await
         .map_err(plain)?;
-    let Some((card_message_id, old, file, instruction, earlier)) = loaded else {
+    let Some((card_message_id, old, file, instruction, earlier, request, referenced)) = loaded else {
         return Err(plain(invalid("There is no draft to revise any more.")));
     };
 
@@ -1723,9 +1727,14 @@ async fn revise_job(
         .await;
     // The source text (FR-KN-UP-6); a card without one (or after it was released) is revised
     // from its own text.
-    let source_text = file
+    let mut source_text = file
         .and_then(|f| f.text)
         .unwrap_or_else(|| old.body.clone());
+    // FR-LLM-AS-14: references in a revision are sources too, including pages outside the scope.
+    if !referenced.is_empty() {
+        source_text.push_str("\n\n");
+        source_text.push_str(&referenced);
+    }
     let file_name = old.file_name.clone().unwrap_or_else(|| old.title.clone());
     let size = llm::context_size(ctx.sidecars, &resolved).await;
     let mut fit = Fit::new(&source_text, sources::budget(size), true);
@@ -1734,12 +1743,12 @@ async fn revise_job(
         let (source, excerpts) = match plan {
             SourcePlan::Whole | SourcePlan::Parts(_) => (source_text.clone(), false),
             SourcePlan::Excerpts => (
-                pick_excerpts(ctx, &source_text, &job.request, allowed).await,
+                pick_excerpts(ctx, &source_text, &request, allowed).await,
                 true,
             ),
         };
         let glossary = ctx
-            .glossary(&old.category_id, vec![source.clone(), job.request.clone()])
+            .glossary(&old.category_id, vec![source.clone(), request.clone()])
             .await;
         let messages = prompts::revise(
             &file_name,
@@ -1749,7 +1758,7 @@ async fn revise_job(
             &glossary,
             &old.body,
             &earlier,
-            &job.request,
+            &request,
         )
         .map_err(|e| plain(e.into()))?;
         match ctx

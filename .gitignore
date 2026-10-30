@@ -33,9 +33,8 @@ poc/**/gen/schemas/
 /sidecar/**/*.egg-info/
 /sidecar/.pytest_cache/
 
-# Release build (M7 part C): downloads, wheels, the staged bundle and the AppImage
-/packaging/cache/
-/packaging/build/
+# Release build (D-85): the release files, the staged bundle (build/stage) and the downloads (build/cache)
+/build/
 
 # Editable local sample used by development builds. Automated tests use external-tests.
 /crates/cairn-core/tests/fixtures/external-sample/

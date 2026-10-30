@@ -53,7 +53,7 @@ use specta::Type;
 use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipArchive, ZipWriter};
 
-use crate::migrations::{latest_version, migrate_to, migrations};
+use crate::migrations::{create_at, latest_version, migrate_to, migrations};
 use crate::settings::KnowledgeMode;
 use crate::{CoreError, Db, Result};
 
@@ -666,7 +666,8 @@ fn build_staging(
     // Foreign keys are checked once at the end, so the table order does not matter.
     conn.execute_batch("PRAGMA foreign_keys = OFF")?;
     let source_version = archive_source_version(zip, manifest)?;
-    migrate_to(&mut conn, migs, source_version as usize)?;
+    // D-86: an export from 0.x is built with 0.x's steps, a newer one from the schema at 1.0.
+    create_at(&mut conn, migs, source_version as usize)?;
 
     let tables = exported_tables(&conn)?;
     for name in manifest.tables.keys() {

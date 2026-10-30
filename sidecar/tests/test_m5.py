@@ -152,6 +152,16 @@ def test_image_sample_is_scaled_jpeg(tmp_path):
         assert im.format == "JPEG" and im.size == (part["width"], part["height"]) and max(im.size) <= 2000
 
 
+def test_image_of_another_format_is_bad_file(tmp_path):
+    # A TIFF named .png: Pillow would pick its TIFF decoder by the content; only PNG and JPEG may run.
+    from PIL import Image
+    f = tmp_path / "disguised.png"
+    Image.new("RGB", (8, 8)).save(f, "TIFF")
+    with pytest.raises(SidecarError) as ei:
+        do_extract(f, tmp_path / "o")
+    assert ei.value.kind == "bad_file"
+
+
 def test_image_exif_upright_rgb_and_scaling(tmp_path):
     from PIL import Image
     src = Image.new("RGBA", (3000, 1000), (255, 0, 0, 128))

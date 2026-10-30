@@ -4,17 +4,17 @@
 #
 #   packaging/release-windows.sh           every step below, in this order
 #   packaging/release-windows.sh lite      the lite zip, without the search model (sidecar, notice-lite, exe, zip-lite)
-#   packaging/release-windows.sh sidecar   Python and the packages for Windows -> packaging/build/windows/sidecar
+#   packaging/release-windows.sh sidecar   Python and the packages for Windows -> build/stage/windows/sidecar
 #                                          (online on a first run: the Python tarball and the Windows wheels)
-#   packaging/release-windows.sh model     the embedding model -> packaging/build/windows/models (offline)
-#   packaging/release-windows.sh notice    the NOTICE file     -> packaging/build/windows/NOTICE (offline)
+#   packaging/release-windows.sh model     the embedding model -> build/stage/windows/models (offline)
+#   packaging/release-windows.sh notice    the NOTICE file     -> build/stage/windows/NOTICE (offline)
 #   packaging/release-windows.sh ui        only the UI build check (npm run build); `exe` builds the UI itself
 #   packaging/release-windows.sh exe       cairn.exe: cargo-xwin, target x86_64-pc-windows-msvc, no bundle
-#   packaging/release-windows.sh zip       the folder Cairn-<version>/ and its zip -> packaging/build/windows/
-#   packaging/release-windows.sh notice-lite  the NOTICE without the Gemma section -> packaging/build/windows/NOTICE-lite
+#   packaging/release-windows.sh zip       the folder Cairn-<version>/ and its zip -> build/
+#   packaging/release-windows.sh notice-lite  the NOTICE without the Gemma section -> build/stage/windows/NOTICE-lite
 #   packaging/release-windows.sh zip-lite  the folder Cairn-<version>-lite/ (no models\, NOTICE-lite as NOTICE) and its zip
 #
-# Result: packaging/build/windows/Cairn-<version>-windows-x64.zip, or Cairn-<version>-windows-x64-lite.zip from the
+# Result: build/Cairn-<version>-windows-x64.zip, or Cairn-<version>-windows-x64-lite.zip from the
 # same cairn.exe and sidecar. It holds no data, config or keys (D-58).
 # Needs cargo-xwin, clang and lld (the Windows SDK is in ~/.cache/cargo-xwin; see poc/j-windows/README.md).
 # Settings (environment): CAIRN_JOBS (cargo jobs, default 5), CAIRN_EMBED_MODEL_SRC (see build-model.sh),
@@ -25,13 +25,13 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/.." && pwd)"
 cd "$REPO"
 
-BUILD="$HERE/build/windows"
+STAGE="$REPO/build/stage/windows"
 TARGET=x86_64-pc-windows-msvc
 VERSION="$(python3 -I -c 'import json;print(json.load(open("src-tauri/tauri.conf.json"))["version"])')"
 EXE="$REPO/target/$TARGET/release/cairn.exe"
 NAME="Cairn-${VERSION}"
-ZIP="$BUILD/${NAME}-windows-x64.zip"
-ZIP_LITE="$BUILD/${NAME}-windows-x64-lite.zip"
+ZIP="$REPO/build/${NAME}-windows-x64.zip"
+ZIP_LITE="$REPO/build/${NAME}-windows-x64-lite.zip"
 log() { echo "[release-windows] $*"; }
 
 need_tools() {
@@ -50,11 +50,11 @@ need_xwin() {
 step_sidecar() { nice -n 10 "$HERE/build-sidecar-windows.sh"; }
 
 step_model() {
-    nice -n 10 "$HERE/build-model.sh"     # the output is the same on every platform: packaging/build/models
-    rm -rf "$BUILD/models"
-    mkdir -p "$BUILD"
-    cp -a "$HERE/build/models" "$BUILD/models"
-    log "model copied to $BUILD/models"
+    nice -n 10 "$HERE/build-model.sh"     # the output is the same on every platform: build/stage/models
+    rm -rf "$STAGE/models"
+    mkdir -p "$STAGE"
+    cp -a "$REPO/build/stage/models" "$STAGE/models"
+    log "model copied to $STAGE/models"
 }
 
 step_notice() { python3 -I "$HERE/notice.py" --windows; }
@@ -81,26 +81,26 @@ step_exe() {
 
 # step_zip (full) or step_zip lite: the lite zip has no models\ and takes NOTICE-lite as its NOTICE (D-82).
 step_zip() {
-    local mode="${1:-full}" name="$NAME" zip="$ZIP" notice="$BUILD/NOTICE" model="$BUILD/models/embeddinggemma-300m/tokenizer.json"
+    local mode="${1:-full}" name="$NAME" zip="$ZIP" notice="$STAGE/NOTICE" model="$STAGE/models/embeddinggemma-300m/tokenizer.json"
     if [ "$mode" = lite ]; then
-        name="$NAME-lite"; zip="$ZIP_LITE"; notice="$BUILD/NOTICE-lite"; model=""
+        name="$NAME-lite"; zip="$ZIP_LITE"; notice="$STAGE/NOTICE-lite"; model=""
     fi
-    for f in "$EXE" "$BUILD/sidecar/python/python.exe" ${model:+"$model"} "$notice" \
+    for f in "$EXE" "$STAGE/sidecar/python/python.exe" ${model:+"$model"} "$notice" \
              "$HERE/windows/README.txt" "$HERE/windows/check-windows.ps1" "$HERE/windows/ui-check.js"; do
         [ -e "$f" ] || { log "missing $f: run the 'sidecar', $([ "$mode" = lite ] && echo "'notice-lite'" || echo "'model', 'notice'") and 'exe' steps first"; exit 1; }
     done
     log "writing $name/ into the zip"
-    python3 -I - "$BUILD" "$EXE" "$HERE/windows" "$name" "$zip" "$mode" <<'PY'
+    python3 -I - "$STAGE" "$EXE" "$HERE/windows" "$name" "$zip" "$mode" <<'PY'
 import os, sys, zipfile
-build, exe, winsrc, name, zippath, mode = sys.argv[1:7]
+stage, exe, winsrc, name, zippath, mode = sys.argv[1:7]
 lite = mode == "lite"
 TEXT = {".txt", ".ps1"}   # top-level text files: plain ASCII (PowerShell 5.1 reads a .ps1 without BOM as ANSI), CRLF
-files = [(exe, "cairn.exe"), (os.path.join(build, "NOTICE-lite" if lite else "NOTICE"), "NOTICE")]
+files = [(exe, "cairn.exe"), (os.path.join(stage, "NOTICE-lite" if lite else "NOTICE"), "NOTICE")]
 for f in ("README.txt", "check-windows.ps1", "ui-check.js"):
     files.append((os.path.join(winsrc, f), f))
-trees = [(os.path.join(build, "sidecar", "python"), "sidecar/python")]
+trees = [(os.path.join(stage, "sidecar", "python"), "sidecar/python")]
 if not lite:
-    trees.append((os.path.join(build, "models", "embeddinggemma-300m"), "models/embeddinggemma-300m"))
+    trees.append((os.path.join(stage, "models", "embeddinggemma-300m"), "models/embeddinggemma-300m"))
 for top, prefix in trees:
     for root, dirs, names in os.walk(top):
         dirs.sort()

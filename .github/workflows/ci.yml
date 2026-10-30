@@ -1,10 +1,10 @@
-# Checks on every push to main and every pull request (CONTRIBUTING.md). Needs no secrets: a fork's
+# Checks on every push to main or develop and every pull request (CONTRIBUTING.md). Needs no secrets: a fork's
 # code runs with read-only access. Releases are not built here (make publish, on the maintainer's machine).
 name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
 
 permissions:

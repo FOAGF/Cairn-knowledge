@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # packaging/build-sidecar-windows.sh (M8, NFR-INS-1, D-55, D-57): builds the sidecar bundle for Windows x64
-# ON LINUX. Output: packaging/build/windows/sidecar/python/ (python.exe, DLLs, Lib\ with the packages).
+# ON LINUX. Output: build/stage/windows/sidecar/python/ (python.exe, DLLs, Lib\ with the packages).
 # The app runs `<exe folder>\sidecar\python\python.exe -I -m cairn_sidecar`.
 #
 # Steps (same shape as build-sidecar.sh for Linux):
 #   1. python-build-standalone for Windows (same tag and Python version as the Linux one, sha256 pinned).
-#      From packaging/cache/, else DOWNLOADED (online step, about 21 MB from github.com).
+#      From build/cache/, else DOWNLOADED (online step, about 21 MB from github.com).
 #   2. The Windows wheels for sidecar/requirements.lock: `pip download --platform win_amd64` into
-#      packaging/cache/wheels-win (online step, about 120 MB, only when that folder is not complete for
+#      build/cache/wheels-win (online step, about 120 MB, only when that folder is not complete for
 #      this lock), LiteLLM's wheel checked against its sha256 (pip-pins.sh), then an offline
 #      `pip install --target` into Lib\site-packages. The Linux dev Python's pip does both; nothing of the
 #      Windows side is run. The sidecar's own package is copied in.
@@ -24,9 +24,9 @@
 #      The import smoke test cannot run here: the self-test of the exe covers it on Windows.
 #
 # CAIRN_HOST_PYTHON: the Linux Python 3.12 used for pip and compiling (default: sidecar/.venv, else a
-# copy of the Linux python-build-standalone in packaging/build/host-python, unpacked from the tarball
-# that build-sidecar.sh keeps in packaging/cache/ and downloaded like there if it is missing; the copy
-# in packaging/build/sidecar has no pip, it is pruned).
+# copy of the Linux python-build-standalone in build/stage/host-python, unpacked from the tarball
+# that build-sidecar.sh keeps in build/cache/ and downloaded like there if it is missing; the copy
+# in build/stage/sidecar has no pip, it is pruned).
 # CAIRN_WIN_PBS_TARBALL=<file>: a local copy of the Windows Python tarball (checked against the sha256).
 set -euo pipefail
 
@@ -40,8 +40,8 @@ FILE="cpython-${PY}+${TAG}-x86_64-pc-windows-msvc-install_only_stripped.tar.gz"
 SHA256=11ed9f8a6ac64fb1b5a55e40e305a6744a3f77a70863c8f8197a6e4349abc64a   # from the release's SHA256SUMS
 URL="https://github.com/astral-sh/python-build-standalone/releases/download/${TAG}/${FILE//+/%2B}"
 
-CACHE="$HERE/cache"
-OUT="$HERE/build/windows/sidecar"
+CACHE="$REPO/build/cache"
+OUT="$REPO/build/stage/windows/sidecar"
 LOCK="$REPO/sidecar/requirements.lock"
 WHEELS="$CACHE/wheels-win"
 PYROOT="$OUT/python"
@@ -62,9 +62,9 @@ usable_python() {
         && "$1" -I -m pip --version >/dev/null 2>&1
 }
 # The Linux python-build-standalone of build-sidecar.sh (same tag and version, its sha256 pin read from
-# there), unpacked once into packaging/build/host-python. Logs go to stderr: stdout is the path.
+# there), unpacked once into build/stage/host-python. Logs go to stderr: stdout is the path.
 host_pbs() {
-    local file sha url tarball dir="$HERE/build/host-python"
+    local file sha url tarball dir="$REPO/build/stage/host-python"
     if usable_python "$dir/python/bin/python3"; then echo "$dir/python/bin/python3"; return; fi
     file="cpython-${PY}+${TAG}-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz"
     sha="$(sed -n 's/^SHA256=//p' "$HERE/build-sidecar.sh")"

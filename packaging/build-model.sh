@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 # packaging/build-model.sh (NFR-INS-1): copies the embedding model into the release bundle and
-# checks every file against its pinned sha256. Output: packaging/build/models/embeddinggemma-300m/
+# checks every file against its pinned sha256. Output: build/stage/models/embeddinggemma-300m/
 # (the app finds it at `<resources>/models/embeddinggemma-300m`).
 #
 # Where the files come from, first match: CAIRN_EMBED_MODEL_SRC (a folder that holds
-# onnx/model_q4.onnx{,_data} and tokenizer.json); else packaging/cache/embeddinggemma-300m, which packaging/fetch-model.sh fills (ONLINE STEP,
+# onnx/model_q4.onnx{,_data} and tokenizer.json); else build/cache/embeddinggemma-300m, which packaging/fetch-model.sh fills (ONLINE STEP,
 # about 200 MB, only when the files are not there yet). The pins are in packaging/model-pins.sh.
 # Links in the source folder are followed, so the bundle holds real files.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/.." && pwd)"
-DST="$HERE/build/models/embeddinggemma-300m"
+DST="$REPO/build/stage/models/embeddinggemma-300m"
 # shellcheck source=packaging/model-pins.sh
 . "$HERE/model-pins.sh"
 PINS="$MODEL_PINS"

@@ -15,10 +15,10 @@ It works offline. The file holds, in this order:
 Licence texts that are word for word the same are printed once, with the list of packages that
 use them.
 
---python-root: the folder that holds `lib/python3.12` (default: packaging/build/sidecar/python).
---windows (M8): the Windows bundle. Python root packaging/build/windows/sidecar/python (CPython's
+--python-root: the folder that holds `lib/python3.12` (default: build/stage/sidecar/python).
+--windows (M8): the Windows bundle. Python root build/stage/windows/sidecar/python (CPython's
 licence is python/LICENSE.txt, the packages are in Lib/site-packages), output
-packaging/build/windows/NOTICE, and the Rust crates for x86_64-pc-windows-msvc.
+build/stage/windows/NOTICE, and the Rust crates for x86_64-pc-windows-msvc.
 --lite: the NOTICE of a lite package, which has no search model (NFR-INS-1b, D-82): no Gemma section,
 output NOTICE-lite in the same folder.
 For a test against a venv, give --python-site and --cpython-license separately.
@@ -224,7 +224,7 @@ def main():
     ap.add_argument("--no-npm", action="store_true", help="skip the npm section (test hook)")
     args = ap.parse_args()
 
-    build = REPO / "packaging" / "build" / ("windows" if args.windows else "")
+    build = REPO / "build" / "stage" / ("windows" if args.windows else "")
     root = Path(args.python_root or build / "sidecar" / "python")
     out_default = build / ("NOTICE-lite" if args.lite else "NOTICE")
     if args.windows:

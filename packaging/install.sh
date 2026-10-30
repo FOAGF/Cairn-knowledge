@@ -35,7 +35,7 @@ if [ -z "$image" ]; then
     pattern='Cairn_*_amd64.AppImage'
     [ "$lite" = 1 ] && pattern='Cairn-lite_*_amd64.AppImage'
     # shellcheck disable=SC2086
-    image="$(ls "$REPO"/target/release/bundle/appimage/$pattern 2>/dev/null | sort -V | tail -n 1 || true)"
+    image="$(ls "$REPO"/build/$pattern 2>/dev/null | sort -V | tail -n 1 || true)"
 fi
 if [ -z "$image" ] || [ ! -f "$image" ]; then
     build='make release'

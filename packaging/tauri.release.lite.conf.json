@@ -2,9 +2,9 @@
   "$schema": "https://schema.tauri.app/config/2",
   "bundle": {
     "resources": {
-      "../packaging/build/models/": null,
-      "../packaging/build/NOTICE": null,
-      "../packaging/build/NOTICE-lite": "NOTICE"
+      "../build/stage/models/": null,
+      "../build/stage/NOTICE": null,
+      "../build/stage/NOTICE-lite": "NOTICE"
     }
   }
 }

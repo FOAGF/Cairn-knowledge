@@ -18,7 +18,7 @@ import { useSyncExternalStore } from 'react'
 import { toast } from 'sonner'
 import { getT } from '@/i18n'
 import { commands, events, type KnowledgeMode, type KnowledgeProgress, type ScanSkip } from './bindings'
-import { errorMessage, queryClient, useTauriEvent } from './client'
+import { queryClient, toastError, useTauriEvent } from './client'
 import { useSettings } from './settings'
 
 export type { BackupInfo, KnowledgeMode, KnowledgeProgress, KnowledgeStorage, NameClash, ScanSummary, SwitchBackup, SwitchBackups } from './bindings'
@@ -42,7 +42,7 @@ export async function chooseKnowledgeMode(mode: KnowledgeMode, root: string | nu
 
 /** *Open folder*: the knowledge folder (external mode, when it is there) or the switch backups, in the file manager. */
 export function openStorageFolder(which: 'knowledge' | 'switchBackups') {
-  return commands.openFolder(which).catch((e) => toast.error(errorMessage(e)))
+  return commands.openFolder(which).catch(toastError)
 }
 
 /** *Rescan*: reads the whole folder again in the background. */

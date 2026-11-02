@@ -27,6 +27,11 @@ export function errorMessage(e: unknown): string {
   return String(e)
 }
 
+/** Shows an error as a toast, e.g. `.catch(toastError)`. */
+export function toastError(e: unknown): void {
+  toast.error(errorMessage(e))
+}
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

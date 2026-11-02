@@ -2,7 +2,7 @@ import { Archive, ArchiveRestore, ChevronRight, FileUp, MessageSquare, MoreHoriz
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
-import { errorMessage } from '@/api/client'
+import { errorMessage, toastError } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -44,11 +44,11 @@ export function ConversationList({ activeId }: { activeId?: string }) {
       () =>
         toast.success(tc.archived, {
           description: tc.archivedDescription,
-          action: { label: tc.undo, onClick: () => void restoreConversation(c.id).catch((e) => toast.error(errorMessage(e))) },
+          action: { label: tc.undo, onClick: () => void restoreConversation(c.id).catch(toastError) },
         }),
       (e) => toast.error(errorMessage(e)),
     )
-  const restore = (c: Conversation) => void restoreConversation(c.id).catch((e) => toast.error(errorMessage(e)))
+  const restore = (c: Conversation) => void restoreConversation(c.id).catch(toastError)
 
   const row = (c: Conversation) => (
     <li key={c.id}>

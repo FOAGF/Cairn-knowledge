@@ -3,9 +3,8 @@
 import { CircleAlert, Download } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router'
-import { toast } from 'sonner'
 import { openUrl } from '@/api/assistant'
-import { errorMessage } from '@/api/client'
+import { toastError } from '@/api/client'
 import {
   type ModelTask,
   type SearchModelStatus,
@@ -32,7 +31,7 @@ function TermsLink() {
       className="font-medium text-primary underline underline-offset-3"
       onClick={(e) => {
         e.preventDefault()
-        void openUrl(GEMMA_TERMS).catch((err) => toast.error(errorMessage(err)))
+        void openUrl(GEMMA_TERMS).catch(toastError)
       }}
     >
       {t.searchModel.terms}

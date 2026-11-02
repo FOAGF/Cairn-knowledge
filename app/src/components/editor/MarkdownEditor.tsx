@@ -65,7 +65,7 @@ function insertImage(view: EditorView, file: File, pos: number, pageCategoryId: 
     (markdown) => swap(markdown + '\n'),
     (e) => {
       swap('')
-      toast.error(getT().editor.image.saveFailed(e instanceof Error ? e.message : String(e)))
+      toast.error(getT().editor.image.saveFailed(errorMessage(e)))
     },
   )
 }

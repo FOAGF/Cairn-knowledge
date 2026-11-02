@@ -48,8 +48,10 @@ pub async fn update_category(
     id: String,
     changes: CategoryChanges,
 ) -> ApiResult<Category> {
+    // One transaction: in external mode a rename moves the folder and rewrites paths and links,
+    // all of which must land together (as a group rename does).
     let category = state
-        .with_db(move |db| categories::update(db.conn(), &id, changes))
+        .with_db(move |db| db.tx(|tx| categories::update(tx, &id, changes)))
         .await?;
     // External mode: a new name renamed the category's folder, so its pages' paths changed.
     if category.folder.is_some() {

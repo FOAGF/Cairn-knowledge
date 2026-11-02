@@ -108,7 +108,7 @@ pub fn delete_expired(app: &AppHandle) {
         return;
     };
     let gone = {
-        let mut db = db.lock().unwrap_or_else(|p| p.into_inner());
+        let mut db = crate::state::lock_db(&db);
         conversations::delete_expired_now(&mut db)
     };
     match gone {

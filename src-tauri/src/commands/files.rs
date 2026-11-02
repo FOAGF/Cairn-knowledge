@@ -931,7 +931,7 @@ impl Drop for StopGuard {
         let Some(db) = self.db.take() else { return };
         let (app, id) = (self.app.take(), std::mem::take(&mut self.message_id));
         std::thread::spawn(move || {
-            let Ok(mut db) = db.lock() else { return };
+            let mut db = crate::state::lock_db(&db);
             let result = conversations::fail_message(&mut db, &id, llm::CANCELLED, "Stopped.");
             if let Err(e) = result {
                 tracing::warn!(error = %e, "could not record that a chat job was stopped");

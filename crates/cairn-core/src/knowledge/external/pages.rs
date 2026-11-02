@@ -382,7 +382,7 @@ pub(crate) fn update_group(conn: &Connection, ext: &Ext, id: &str, patch: GroupP
 
 /// Deletes a group: its pages and groups move up one level (refused as a whole when a name would
 /// clash there), then its folder goes if nothing else is in it (D-72 contract, "Folders").
-pub(crate) fn delete_group(conn: &Connection, ext: &Ext, id: &str, _st: &Stamp) -> Result<()> {
+pub(crate) fn delete_group(conn: &Connection, ext: &Ext, id: &str) -> Result<()> {
     let g = get_group(conn, id)?;
     let Some(path) = g.path.clone() else {
         conn.execute("DELETE FROM groups WHERE id = ?1", [id])?;

@@ -771,14 +771,14 @@ fn check_integrity(conn: &Connection, references: bool) -> Result<()> {
 /// An external-mode archive whose folder isn't on this computer is refused (FR-KN-EXT-14): the
 /// UI asks for the folder ([`import_with_root`]) or offers the tasks only ([`import_tasks_only`]).
 pub fn import_from(db: &mut Db, archive: &Path) -> Result<ImportSummary> {
-    import_with(db, archive, &migrations(), latest_version(), &ImportAs::Whole)
+    import_with(db, archive, &ImportAs::Whole)
 }
 
 /// FR-KN-EXT-14: imports an external-mode archive with its knowledge in the folder `root` (where
 /// the user says it is now). The index then needs a scan of that folder.
 pub fn import_with_root(db: &mut Db, archive: &Path, root: &str) -> Result<ImportSummary> {
     let root = crate::knowledge::mode::check_root(db, root)?;
-    import_with(db, archive, &migrations(), latest_version(), &ImportAs::WithRoot(root))
+    import_with(db, archive, &ImportAs::WithRoot(root))
 }
 
 /// FR-KN-EXT-14: imports only the archive's tasks (with their comments, history, links, labels
@@ -787,7 +787,7 @@ pub fn import_with_root(db: &mut Db, archive: &Path, root: &str) -> Result<Impor
 /// rest of the current data is replaced as by any import (pages, glossary and conversations end
 /// up empty), after the usual backup, and Cairn is in internal mode.
 pub fn import_tasks_only(db: &mut Db, archive: &Path) -> Result<ImportSummary> {
-    import_with(db, archive, &migrations(), latest_version(), &ImportAs::TasksOnly)
+    import_with(db, archive, &ImportAs::TasksOnly)
 }
 
 /// How an archive is imported.
@@ -845,13 +845,8 @@ fn keep_tasks_only(db_file: &Path, current: &Connection) -> Result<()> {
     Ok(())
 }
 
-fn import_with(
-    db: &mut Db,
-    archive: &Path,
-    migs: &Migrations<'_>,
-    latest: u32,
-    how: &ImportAs,
-) -> Result<ImportSummary> {
+fn import_with(db: &mut Db, archive: &Path, how: &ImportAs) -> Result<ImportSummary> {
+    let latest = latest_version();
     let mut zip = ZipArchive::new(BufReader::new(File::open(archive)?))
         .map_err(|_| not_an_export("it is not a zip file"))?;
     let manifest = read_manifest(&mut zip, latest)?;
@@ -875,7 +870,7 @@ fn import_with(
     let stamp = chrono::Utc::now().format("%Y%m%d-%H%M%S-%3f");
     let staging = db.paths().root.join(format!("import-staging-{stamp}"));
     let result = (|| -> Result<PathBuf> {
-        build_staging(&mut zip, &manifest, &staging, migs, latest)?;
+        build_staging(&mut zip, &manifest, &staging, &migrations(), latest)?;
         match how {
             ImportAs::Whole => {}
             ImportAs::TasksOnly => keep_tasks_only(&staging.join("cairn.sqlite"), db.conn())?,

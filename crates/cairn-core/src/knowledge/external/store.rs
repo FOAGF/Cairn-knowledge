@@ -1276,8 +1276,3 @@ pub(crate) fn save_image(conn: &Connection, ext: &Ext, category_id: &str, bytes:
     }
     Ok(path)
 }
-
-/// For tests and tools: the absolute file of a page.
-pub fn page_file(ext: &Ext, page: &Page) -> Option<std::path::PathBuf> {
-    page.path.as_deref().and_then(|p| ext.abs(p))
-}

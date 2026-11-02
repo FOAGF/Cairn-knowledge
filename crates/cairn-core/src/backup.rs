@@ -307,14 +307,6 @@ pub fn prepare(db: &Db, kind: BackupKind) -> Result<BackupJob> {
     })
 }
 
-/// Makes a backup of `kind` now: the database check first (daily only), then the export, then
-/// retention (daily only). Records the outcome in the status, also on failure (the error is
-/// returned too). Holds the caller's `Db` for the whole export; the app uses [`prepare`] and
-/// [`BackupJob::run`] instead.
-pub fn make_backup(db: &mut Db, kind: BackupKind, now: DateTime<Utc>) -> Result<BackupFile> {
-    prepare(db, kind)?.run(now)
-}
-
 impl BackupJob {
     /// [`BackupJob::run`] at the current time.
     pub fn run_now(&self) -> Result<BackupFile> {

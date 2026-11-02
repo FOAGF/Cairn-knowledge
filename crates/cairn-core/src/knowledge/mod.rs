@@ -307,7 +307,7 @@ pub fn update_group(db: &mut Db, id: &str, patch: GroupPatch) -> Result<Group> {
 pub fn delete_group(db: &mut Db, id: &str) -> Result<()> {
     db.tx(|tx| {
         if let Some(ext) = external::active(tx)? {
-            return external::pages::delete_group(tx, &ext, id, &Stamp::now());
+            return external::pages::delete_group(tx, &ext, id);
         }
         get_group(tx, id)?;
         // pages.group_id is ON DELETE SET NULL.
@@ -799,7 +799,7 @@ fn set_archived_in(conn: &Connection, id: &str, archived: bool, st: &Stamp) -> R
     Ok(p)
 }
 
-/// Used by the save pipeline and the check screens (simulated until M5).
+/// Used by the save pipeline and the check screens.
 pub fn set_check_status(db: &mut Db, id: &str, status: CheckStatus) -> Result<Page> {
     db.tx(|tx| set_check_status_in(tx, id, status))
 }

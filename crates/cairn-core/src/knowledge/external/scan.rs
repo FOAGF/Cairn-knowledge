@@ -37,7 +37,6 @@
 //! write a daily version and activity like any change.
 
 use std::collections::{BTreeSet, HashMap, HashSet};
-use std::path::Path;
 use std::time::SystemTime;
 
 use rusqlite::{Connection, OptionalExtension, params};
@@ -986,16 +985,6 @@ impl ScanJob {
 // ---------------------------------------------------------------- step 3: applying
 
 impl ScanPlan {
-    /// Items left to apply.
-    pub fn remaining(&self) -> usize {
-        self.folders.len() - self.folders_next + self.pages.len() - self.next
-    }
-
-    /// Whether the plan changes nothing.
-    pub fn is_empty(&self) -> bool {
-        self.folders.is_empty() && self.pages.is_empty()
-    }
-
     /// All items of the plan (the mention updates at the end come on top).
     pub fn total(&self) -> usize {
         self.folders.len() + self.pages.len()
@@ -1624,16 +1613,4 @@ pub fn scan(db: &mut Db, scope: Scope) -> Result<ScanSummary> {
 /// Whether a path names something a scan reads (not hidden, inside the root).
 pub fn relevant(rel: &str) -> bool {
     !rel.is_empty() && !rel.split('/').any(is_hidden)
-}
-
-/// The root-relative paths of absolute ones (for watcher batches); others are dropped.
-pub fn relative_paths(ext: &Ext, abs: &[std::path::PathBuf]) -> Vec<String> {
-    let mut out: Vec<String> = abs
-        .iter()
-        .filter_map(|p| ext.rel(Path::new(p)))
-        .filter(|p| relevant(p))
-        .collect();
-    out.sort();
-    out.dedup();
-    out
 }

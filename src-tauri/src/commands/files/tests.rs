@@ -26,27 +26,10 @@ struct Env {
     small_model: String,
 }
 
-fn fake_config() -> SidecarConfig {
-    SidecarConfig {
-        python: Some(PathBuf::from("python3")),
-        script_args: vec![
-            concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/tests/fixtures/fake_sidecar.py"
-            )
-            .into(),
-        ],
-        model_dir: Some(PathBuf::from("/nonexistent/model")),
-        idle_timeout: Duration::from_secs(60),
-        embed_threads: 1,
-        start_timeout: Duration::from_secs(10),
-    }
-}
-
 async fn setup() -> Env {
     let dir = tempfile::tempdir().unwrap();
     let state = AppState::open(DataPaths::new(dir.path()), Arc::new(MemoryStore::default()));
-    let sidecars = Sidecars::new(fake_config(), Arc::new(|_| {}));
+    let sidecars = Sidecars::new(SidecarConfig::fake(), Arc::new(|_| {}));
     let (conversation, category, chat_model, small_model) = state
         .with_db(|db| {
             let secrets = MemoryStore::default();

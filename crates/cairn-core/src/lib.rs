@@ -9,6 +9,9 @@ pub mod migrations;
 pub mod paths;
 pub mod util;
 
+#[cfg(test)]
+mod test_util;
+
 // Feature areas.
 pub mod assistant;
 pub mod attachments;

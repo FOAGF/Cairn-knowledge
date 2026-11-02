@@ -144,6 +144,21 @@ pub struct SidecarConfig {
     pub start_timeout: Duration,
 }
 
+#[cfg(test)]
+impl SidecarConfig {
+    /// The fake sidecar (`tests/fixtures/fake_sidecar.py`) the command tests run against.
+    pub(crate) fn fake() -> SidecarConfig {
+        SidecarConfig {
+            python: Some(PathBuf::from("python3")),
+            script_args: vec![concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/fake_sidecar.py").into()],
+            model_dir: Some(PathBuf::from("/nonexistent/model")),
+            idle_timeout: Duration::from_secs(60),
+            embed_threads: 1,
+            start_timeout: Duration::from_secs(10),
+        }
+    }
+}
+
 impl SidecarConfig {
     /// Resolves paths in this order: the environment, then the release resource folder, then (debug
     /// builds only) the repo's dev setup (see the module comment).

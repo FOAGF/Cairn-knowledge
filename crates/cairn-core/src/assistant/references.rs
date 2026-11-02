@@ -72,7 +72,6 @@ pub fn source_text(conn: &Connection, text: &str) -> Result<String> {
 mod tests {
     use super::*;
     use crate::Db;
-    use crate::categories::{self, CategoryColor, NewCategory};
     use crate::knowledge::NewPage;
     use crate::tasks::NewTask;
 
@@ -86,17 +85,7 @@ mod tests {
     fn env() -> Env {
         let dir = tempfile::tempdir().unwrap();
         let mut db = Db::open_at(dir.path()).unwrap();
-        let category = categories::create(
-            db.conn(),
-            NewCategory {
-                name: "Alpha".into(),
-                key: "AAA".into(),
-                description: String::new(),
-                color: CategoryColor::preset("blue"),
-            },
-        )
-        .unwrap()
-        .id;
+        let category = crate::test_util::category(db.conn(), "Alpha", "AAA");
         let task = tasks::create(
             &mut db,
             NewTask { category_id: category.clone(), title: "Pump seal".into(), ..NewTask::default() },

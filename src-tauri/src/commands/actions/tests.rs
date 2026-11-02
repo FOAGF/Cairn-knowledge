@@ -1,7 +1,6 @@
 //! The action branch end to end against the fake sidecar (`tests/fixtures/fake_sidecar.py`, its
 //! "M6 actions block") with a temporary data folder: no window, so no `check` call after a new page.
 
-use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -31,23 +30,10 @@ struct Env {
     page: cairn_core::knowledge::Page,
 }
 
-fn fake_config() -> SidecarConfig {
-    SidecarConfig {
-        python: Some(PathBuf::from("python3")),
-        script_args: vec![
-            concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/fake_sidecar.py").into(),
-        ],
-        model_dir: Some(PathBuf::from("/nonexistent/model")),
-        idle_timeout: Duration::from_secs(60),
-        embed_threads: 1,
-        start_timeout: Duration::from_secs(10),
-    }
-}
-
 async fn setup() -> Env {
     let dir = tempfile::tempdir().unwrap();
     let state = AppState::open(DataPaths::new(dir.path()), Arc::new(MemoryStore::default()));
-    let sidecars = Sidecars::new(fake_config(), Arc::new(|_| {}));
+    let sidecars = Sidecars::new(SidecarConfig::fake(), Arc::new(|_| {}));
     let (conversation, model, category, tasks, page) = state
         .with_db(|db| {
             let secrets = MemoryStore::default();

@@ -555,7 +555,6 @@ pub fn rebuild(conn: &Connection) -> Result<()> {
 mod tests {
     use super::*;
     use crate::Db;
-    use crate::categories::{self, NewCategory, CategoryColor};
     use crate::tasks::{self, NewTask, TaskPatch, TaskStatus};
 
     struct Env {
@@ -569,17 +568,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let db = Db::open_at(dir.path()).unwrap();
         let mk = |name: &str, key: &str| {
-            categories::create(
-                db.conn(),
-                NewCategory {
-                    name: name.into(),
-                    key: key.into(),
-                    description: String::new(),
-                    color: CategoryColor::preset("blue"),
-                },
-            )
-            .unwrap()
-            .id
+            crate::test_util::category(db.conn(), name, key)
         };
         let a = mk("Alpha", "AAA");
         let b = mk("Beta", "BBB");

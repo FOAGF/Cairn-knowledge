@@ -971,20 +971,9 @@ mod tests {
 
     // ------------------------------------------------------------ with a database
 
-    use crate::categories::{CategoryColor, NewCategory};
 
     fn category(db: &Db, name: &str, key: &str) -> String {
-        categories::create(
-            db.conn(),
-            NewCategory {
-                name: name.into(),
-                key: key.into(),
-                description: String::new(),
-                color: CategoryColor::preset("blue"),
-            },
-        )
-        .unwrap()
-        .id
+        crate::test_util::category(db.conn(), name, key)
     }
 
     fn page(db: &mut Db, category: &str, group: Option<&str>, title: &str, body: &str) -> Page {

@@ -246,8 +246,9 @@ export const commands = {
 	/**  [`run_check`] as a command, cancellable with `input.job_id`. */
 	checkPage: (input: CheckInput) => __TAURI_INVOKE<CheckReport>("check_page", { input }),
 	/**
-	 *  FR-KN-DU-1: the draft's pieces (`chunking::split_page`) are embedded as documents and compared
-	 *  with the index (`vectors::similar_to_vectors`), across all categories; keyword search on the title
+	 *  FR-KN-DU-1: the draft's pieces, built as the indexer builds a saved page's
+	 *  (`vectors::draft_pieces`, glossary lines included), are embedded as documents and compared with
+	 *  the index (`vectors::similar_to_vectors`), across all categories; keyword search on the title
 	 *  while the index isn't ready. Ranked by `checks::rank_duplicates` with Settings › Knowledge
 	 *  "likely the same topic".
 	 */

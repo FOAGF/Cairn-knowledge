@@ -9,7 +9,6 @@ use std::sync::Arc;
 
 use cairn_core::checks::{self, CheckReport, DuplicateHit};
 use cairn_core::Db;
-use cairn_core::chunking;
 use cairn_core::glossary;
 use cairn_core::knowledge;
 use cairn_core::categories;
@@ -144,14 +143,6 @@ const DUPLICATE_LIMIT: usize = 3;
 /// same page still leaves [`DUPLICATE_LIMIT`].
 const CANDIDATES: u32 = 30;
 
-/// The text of a piece as the indexer embeds it: heading path, then the text.
-fn piece_text(heading: &str, text: &str) -> String {
-    if heading.is_empty() {
-        text.to_string()
-    } else {
-        format!("{heading}\n{text}")
-    }
-}
 
 fn page_filter(limit: u32) -> SearchQuery {
     SearchQuery {
@@ -224,8 +215,9 @@ fn duplicate_report(
     })
 }
 
-/// FR-KN-DU-1: the draft's pieces (`chunking::split_page`) are embedded as documents and compared
-/// with the index (`vectors::similar_to_vectors`), across all categories; keyword search on the title
+/// FR-KN-DU-1: the draft's pieces, built as the indexer builds a saved page's
+/// (`vectors::draft_pieces`, glossary lines included), are embedded as documents and compared with
+/// the index (`vectors::similar_to_vectors`), across all categories; keyword search on the title
 /// while the index isn't ready. Ranked by `checks::rank_duplicates` with Settings › Knowledge
 /// "likely the same topic".
 #[tauri::command]
@@ -236,13 +228,10 @@ pub async fn find_duplicates(
     input: DuplicateInput,
 ) -> ApiResult<DuplicateReport> {
     // An empty draft still has its title to compare.
-    let mut items: Vec<(String, String)> = chunking::split_page(&input.body)
-        .iter()
-        .map(|p| (input.title.clone(), piece_text(&p.heading, &p.text)))
-        .collect();
-    if items.is_empty() {
-        items.push((input.title.clone(), String::new()));
-    }
+    let (category, title, body) = (input.category_id.clone(), input.title.clone(), input.body.clone());
+    let items = state
+        .with_db(move |db| vectors::draft_pieces(db.conn(), &category, &title, &body))
+        .await?;
     let embedded = sidecars.embed_all(items).await.map_err(|e| {
         tracing::info!(kind = %e.kind, "duplicate check by meaning unavailable: {}", e.message);
         NoMeaning::from(e)

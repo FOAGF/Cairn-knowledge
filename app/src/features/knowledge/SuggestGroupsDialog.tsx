@@ -5,11 +5,12 @@
 import { Check, Loader2, Sparkles, Square } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
+import { toast } from 'sonner'
 import { errorMessage } from '@/api/client'
 import { type GroupProposal, type GroupSuggestions, suggestGroups } from '@/api/creation'
-import { useCreateGroup, useGroups, useUpdatePage } from '@/api/knowledge'
+import { useGroups, useUpdatePage } from '@/api/knowledge'
 import { cancelJob, isCancelled, isLlmUnavailable, newStreamId } from '@/api/llm'
-import { ensureGroupPath, groupOptions, groupPath, isGroupPath } from './groupTree'
+import { createGroupNamed, groupOptions, groupPath } from './groupTree'
 import { useCategoryList } from '@/api/categories'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -26,7 +27,6 @@ const newKey = (name: string) => `n:${name}`
 export function SuggestGroupsDialog({ categoryId, onClose }: { categoryId: string; onClose: () => void }) {
   const category = useCategoryList().find((p) => p.id === categoryId)
   const groups = useGroups(categoryId)
-  const { mutateAsync: createGroup } = useCreateGroup()
   const { mutateAsync: updatePage } = useUpdatePage()
   const [jobId] = useState(newStreamId)
   const [result, setResult] = useState<GroupSuggestions | null>(null)
@@ -69,24 +69,27 @@ export function SuggestGroupsDialog({ categoryId, onClose }: { categoryId: strin
 
   async function approve(i: number) {
     const row = rows[i]
-    try {
-      let groupId: string
-      if (row.pick.kind === 'existing') groupId = row.pick.groupId
+    let groupId: string
+    if (row.pick.kind === 'existing') groupId = row.pick.groupId
+    else {
+      const key = row.pick.name.toLowerCase()
+      const have = created.current.get(key) ?? groups.find((g) => groupPath(g, groups).toLowerCase() === key)?.id
+      if (have) groupId = have
       else {
-        const key = row.pick.name.toLowerCase()
-        const have = created.current.get(key) ?? groups.find((g) => groupPath(g, groups).toLowerCase() === key)?.id
-        if (have) groupId = have
-        else {
-          groupId = isGroupPath(row.pick.name)
-            ? await ensureGroupPath(categoryId, row.pick.name, descriptionOf(row.pick.name))
-            : (await createGroup({ categoryId, name: row.pick.name, description: descriptionOf(row.pick.name) || null })).id
-          created.current.set(key, groupId)
+        try {
+          groupId = await createGroupNamed(categoryId, row.pick.name, descriptionOf(row.pick.name))
+        } catch (e) {
+          toast.error(errorMessage(e))
+          return
         }
+        created.current.set(key, groupId)
       }
+    }
+    try {
       await updatePage({ id: row.proposal.pageId, patch: { groupId } })
       patch(i, { state: 'approved', changing: false })
     } catch {
-      // the error is shown as a toast
+      // the mutation shows its error as a toast
     }
   }
 

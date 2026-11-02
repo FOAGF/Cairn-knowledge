@@ -24,7 +24,7 @@ import { type CheckRow, dropStale, markChecked, patchRow, runChecks, severalTopi
 import { DuplicateMatches, UnavailableNote, Waiting } from './parts'
 import { openAsPending } from './pending'
 import { draftSource } from './helpers'
-import { ensureGroupPath, groupPath, isGroupPath } from '@/features/knowledge/groupTree'
+import { createGroupNamed, groupPath } from '@/features/knowledge/groupTree'
 import { useDuplicateMatches } from './useSimilar'
 import { getT, useT } from '@/i18n'
 
@@ -42,7 +42,7 @@ async function acceptGroups(items: { page: PageSummary; group: GroupPick }[]) {
       const key = `${page.categoryId}\n${group.name.toLowerCase()}`
       let groupId = group.kind === 'existing' ? group.groupId : made.get(key)
       if (!groupId) {
-        groupId = isGroupPath(group.name) ? await ensureGroupPath(page.categoryId, group.name) : (await commands.createGroup({ categoryId: page.categoryId, name: group.name })).id
+        groupId = await createGroupNamed(page.categoryId, group.name)
         made.set(key, groupId)
       }
       const saved = await commands.updatePage(page.id, { groupId })

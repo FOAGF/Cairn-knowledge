@@ -97,6 +97,12 @@ def test_local_without_key_sends_placeholder(mock):
     assert mock.requests[-1]["headers"]["authorization"] == "Bearer none"
 
 
+def test_foundry_v1_style_ignores_capitals():
+    # Rust's `providers::azure_style` ignores them, so both must pick the same route.
+    t = ai.Target(target(provider_kind="azure_foundry", endpoint="https://x.example/OpenAI/V1"))
+    assert t.style() == "openai"
+
+
 # ---- Foundry Claude: the route comes from the settings, not from the name (FR-LLM-PV-7)
 def test_foundry_claude_without_claude_in_name_uses_messages_route(mock):
     t, *_ = make(mock, "foundry_claude_other_name")

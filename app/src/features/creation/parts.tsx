@@ -63,7 +63,7 @@ export function TagsInput({ tags, onChange }: { tags: string[]; onChange: (t: st
     setText('')
   }
   const onKey = (e: KeyboardEvent) => {
-    if (e.key === 'Enter' || e.key === ',') {
+    if ((e.key === 'Enter' || e.key === ',') && !e.nativeEvent.isComposing) {
       e.preventDefault()
       add()
     } else if (e.key === 'Backspace' && !text && tags.length) onChange(tags.slice(0, -1))

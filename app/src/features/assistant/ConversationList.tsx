@@ -159,7 +159,7 @@ export function ConversationList({ activeId }: { activeId?: string }) {
             value={renaming?.title ?? ''}
             onChange={(e) => setRenaming((r) => r && { ...r, title: e.target.value })}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && renaming?.title.trim()) {
+              if (e.key === 'Enter' && !e.nativeEvent.isComposing && renaming?.title.trim()) {
                 updateConversation(renaming.id, { title: renaming.title.trim() })
                 setRenaming(null)
               }

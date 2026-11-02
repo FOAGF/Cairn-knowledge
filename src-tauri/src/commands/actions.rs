@@ -16,7 +16,6 @@
 //! `actions::apply`, one transaction each, and records each row's result), *Reject*.
 //! *Edit…* is UI only: it opens the normal task form (or the page) filled in from the row.
 
-use serde_json::{Map, Value};
 use tauri::{AppHandle, State};
 
 use cairn_core::assistant::actions::{self, PageEditRequest};
@@ -29,12 +28,12 @@ use cairn_core::checks::{self, RawTerm};
 use cairn_core::conversations::{
     ChatMessage, DraftCard, DraftState, MessagePatch, TermSuggestion, StepState,
 };
-use cairn_core::prompts::{self, AskAction, AskPage, LlmMessage, ModelRole, Role};
+use cairn_core::prompts::{self, AskAction, AskPage, LlmMessage, ModelRole};
 use cairn_core::{CoreError, Db, knowledge, categories, replies};
 
 use super::assistant::AskJob;
 use super::files::{Ctx, Done, JobError, Progress, plain, suggest};
-use crate::error::{ApiError, ApiResult};
+use crate::error::ApiResult;
 use crate::events::{Entity, emit_changed};
 use crate::llm::{self, CallOptions};
 use crate::state::AppState;
@@ -58,29 +57,6 @@ pub(crate) struct ActionInput {
     pub(crate) today: String,
     /// The glossary lines for the request and the candidates (FR-LLM-AS-8).
     pub(crate) glossary: String,
-}
-
-/// A call whose reply is a JSON object, on a [`Ctx`] (so the tests can run it without a window):
-/// one `check-retry` when the first reply can't be read.
-async fn json_call(
-    ctx: &Ctx<'_>,
-    target: &cairn_core::providers::CallTarget,
-    messages: &[LlmMessage],
-    opts: &CallOptions,
-) -> ApiResult<Map<String, Value>> {
-    let first = ctx.complete(target, messages, opts).await?;
-    if let Some(v) = replies::json_object(&first.text) {
-        return Ok(v);
-    }
-    tracing::debug!("JSON reply unreadable, retrying once");
-    let mut again = messages.to_vec();
-    again.push(LlmMessage::new(Role::Assistant, first.text));
-    again.push(prompts::check_retry()?);
-    let second = ctx.complete(target, &again, opts).await?;
-    replies::json_object(&second.text).ok_or_else(|| ApiError {
-        kind: "ai_unreadable".into(),
-        message: "The model's answer couldn't be read, even after asking again.".into(),
-    })
 }
 
 fn first_words(text: &str, n: usize) -> String {
@@ -119,16 +95,6 @@ fn edited_body(text: &str, title: &str) -> String {
 fn same_page(a: &str, b: &str) -> bool {
     let norm = |s: &str| s.lines().map(str::trim_end).collect::<Vec<_>>().join("\n").trim().to_string();
     norm(a) == norm(b)
-}
-
-fn options(opts_stream: Option<&str>, timeout_s: u32, effort: &Option<String>) -> CallOptions {
-    CallOptions {
-        stream_id: opts_stream.map(str::to_string),
-        timeout_s: Some(timeout_s),
-        max_tokens: None,
-        effort: effort.clone(),
-        web_search: None,
-    }
 }
 
 /// The action branch of an assistant message.
@@ -192,7 +158,7 @@ pub(crate) async fn run(
         &input.history,
     )
     .map_err(|e| plain(e.into()))?;
-    let reply = json_call(ctx, &resolved.target, &messages, &options(None, ACTION_TIMEOUT_S, &job.effort))
+    let reply = ctx.complete_json(&resolved.target, &messages, &CallOptions::new(None, job.effort.clone(), ACTION_TIMEOUT_S))
         .await
         .map_err(plain)?;
     let read = actions::read(&reply, &labels, &input.categories);
@@ -227,7 +193,7 @@ pub(crate) async fn run(
             .complete(
                 &resolved.target,
                 &messages,
-                &options(Some(&job.assistant_id), PAGE_TIMEOUT_S, &job.effort),
+                &CallOptions::new(Some(&job.assistant_id), job.effort.clone(), PAGE_TIMEOUT_S),
             )
             .await
             .map_err(plain)?;
@@ -270,7 +236,7 @@ pub(crate) async fn run(
         let messages = prompts::edit_page(&page.body, change, &sources, &glossary, &input.history)
             .map_err(|e| plain(e.into()))?;
         let edited = ctx
-            .complete(&resolved.target, &messages, &options(None, PAGE_TIMEOUT_S, &job.effort))
+            .complete(&resolved.target, &messages, &CallOptions::new(None, job.effort.clone(), PAGE_TIMEOUT_S))
             .await
             .map_err(plain)?;
         if !replies::is_page(&edited.text) {

@@ -135,7 +135,7 @@ impl From<SidecarError> for NoMeaning {
         if e.kind == NOT_INSTALLED {
             Self::NotInstalled
         } else {
-            Self::Unavailable(sidecar_detail(e))
+            Self::Unavailable(e.detail())
         }
     }
 }
@@ -169,12 +169,6 @@ pub(crate) fn meaning_status(status: &IndexStatus, problem: Option<NoMeaning>) -
     }
 }
 
-pub(crate) fn sidecar_detail(e: SidecarError) -> String {
-    match e.hint {
-        Some(h) if !h.is_empty() => format!("{} ({h})", e.message),
-        _ => e.message,
-    }
-}
 
 /// Vector index progress (Settings › Search, FR-RAG-IX-5). Changes arrive as the `IndexProgress` event.
 #[tauri::command]

@@ -112,6 +112,14 @@ impl AppState {
         self.db.as_ref().ok().cloned()
     }
 
+    /// The open database, or the error saying why it couldn't be opened.
+    pub fn db(&self) -> ApiResult<Arc<Mutex<Db>>> {
+        self.db.clone().map_err(|e| ApiError {
+            kind: "database".into(),
+            message: format!("The database could not be opened: {e}"),
+        })
+    }
+
     /// Like [`Self::with_db`], but no backup runs at the same time: for work that swaps the data
     /// files (an import, the dev reset). It waits for a backup in progress first.
     pub async fn with_db_exclusive<T, F>(&self, f: F) -> ApiResult<T>
@@ -119,10 +127,7 @@ impl AppState {
         T: Send + 'static,
         F: FnOnce(&mut Db) -> cairn_core::Result<T> + Send + 'static,
     {
-        let db = self.db_handle().ok_or_else(|| ApiError {
-            kind: "database".into(),
-            message: "The database could not be opened.".into(),
-        })?;
+        let db = self.db()?;
         tauri::async_runtime::spawn_blocking(move || {
             // The backup lock first, then the database lock: the order `backups::make` uses.
             let _no_backup = crate::backups::exclusive();
@@ -138,16 +143,9 @@ impl AppState {
         T: Send + 'static,
         F: FnOnce(&mut Db) -> cairn_core::Result<T> + Send + 'static,
     {
-        let db = self
-            .db
-            .as_ref()
-            .map_err(|e| ApiError {
-                kind: "database".into(),
-                message: format!("The database could not be opened: {e}"),
-            })?
-            .clone();
+        let db = self.db()?;
         tauri::async_runtime::spawn_blocking(move || f(&mut lock_db(&db)).map_err(ApiError::from))
-        .await
-        .map_err(|e| ApiError::internal(e.to_string()))?
+            .await
+            .map_err(|e| ApiError::internal(e.to_string()))?
     }
 }

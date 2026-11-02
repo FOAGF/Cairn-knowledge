@@ -235,10 +235,7 @@ fn api_message(e: ApiError) -> String {
 }
 
 fn sidecar_message(e: SidecarError) -> String {
-    match e.hint {
-        Some(h) if !h.is_empty() => format!("{} ({h})", e.message),
-        _ => e.message,
-    }
+    e.detail()
 }
 
 #[cfg(test)]

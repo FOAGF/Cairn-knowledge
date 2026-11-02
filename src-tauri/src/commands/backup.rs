@@ -23,10 +23,7 @@ pub async fn backup_status(state: State<'_, AppState>) -> ApiResult<BackupStatus
 #[tauri::command]
 #[specta::specta]
 pub async fn backup_now(app: AppHandle, state: State<'_, AppState>) -> ApiResult<BackupFile> {
-    let db = state.db_handle().ok_or_else(|| ApiError {
-        kind: "database".into(),
-        message: "The database could not be opened.".into(),
-    })?;
+    let db = state.db()?;
     tauri::async_runtime::spawn_blocking(move || backups::make(&app, &db, BackupKind::Manual))
         .await
         .map_err(|e| ApiError::internal(e.to_string()))?
@@ -97,10 +94,7 @@ pub async fn dev_reset_data(
     folder: State<'_, std::sync::Arc<crate::knowledge_folder::KnowledgeFolder>>,
 ) -> ApiResult<()> {
     if !cfg!(debug_assertions) {
-        return Err(ApiError {
-            kind: "invalid".into(),
-            message: "Demo data can only be reset in a development build.".into(),
-        });
+        return Err(ApiError::invalid("Demo data can only be reset in a development build."));
     }
     state.with_db_exclusive(export::reset_to_empty).await?;
     events::emit_changed(&app, &[Entity::All]);

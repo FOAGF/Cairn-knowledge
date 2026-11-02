@@ -3,7 +3,7 @@
 use cairn_core::categories::{self, NewCategory, Category, CategoryChanges, CategorySeed};
 use tauri::{AppHandle, State};
 
-use crate::error::{ApiError, ApiResult};
+use crate::error::ApiResult;
 use crate::events::{Entity, emit_changed};
 use crate::state::AppState;
 
@@ -95,12 +95,7 @@ pub async fn dev_seed_categories(
     state: State<'_, AppState>,
     seeds: Vec<CategorySeed>,
 ) -> ApiResult<u32> {
-    if !cfg!(debug_assertions) {
-        return Err(ApiError {
-            kind: "invalid".into(),
-            message: "Demo data is only available in development builds.".into(),
-        });
-    }
+    crate::error::dev_only()?;
     let inserted = state
         .with_db(move |db| categories::seed_if_missing(db.conn(), &seeds))
         .await?;

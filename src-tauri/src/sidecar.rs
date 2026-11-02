@@ -96,6 +96,9 @@ pub struct SidecarStatus {
     pub embed: WorkerStatus,
 }
 
+/// Pieces per `embed.documents` call outside the indexer (PROTOCOL.md "Concurrency").
+pub const EMBED_BATCH: usize = 8;
+
 /// A failed sidecar call. `kind` is one of PROTOCOL.md's error kinds, or `unavailable` when the
 /// process could not be started or died.
 #[derive(Debug, Clone)]
@@ -105,15 +108,21 @@ pub struct SidecarError {
     pub hint: Option<String>,
 }
 
+impl SidecarError {
+    /// The message, with the hint in brackets when there is one.
+    pub fn detail(self) -> String {
+        match self.hint {
+            Some(h) if !h.is_empty() => format!("{} ({h})", self.message),
+            _ => self.message,
+        }
+    }
+}
+
 impl From<SidecarError> for ApiError {
     fn from(e: SidecarError) -> Self {
-        let message = match e.hint {
-            Some(h) if !h.is_empty() => format!("{} ({h})", e.message),
-            _ => e.message,
-        };
         ApiError {
             kind: format!("ai_{}", e.kind),
-            message,
+            message: e.detail(),
         }
     }
 }
@@ -726,8 +735,18 @@ impl Sidecars {
         decode_vector(result.get("vector"))
     }
 
+    /// [`Self::embed_documents`] for any number of pieces, in batches of [`EMBED_BATCH`].
+    pub async fn embed_all(&self, items: Vec<(String, String)>) -> Result<Vec<Vec<f32>>, SidecarError> {
+        let mut vectors = Vec::with_capacity(items.len());
+        for batch in items.chunks(EMBED_BATCH) {
+            vectors.extend(self.embed_documents(batch.to_vec()).await?);
+        }
+        Ok(vectors)
+    }
+
     /// Vectors for document pieces `(title, text)`, in the same order. Callers send small batches
-    /// (at most 8) so a search never waits long behind indexing (PROTOCOL.md "Concurrency").
+    /// (at most [`EMBED_BATCH`]) so a search never waits long behind indexing (PROTOCOL.md
+    /// "Concurrency").
     pub async fn embed_documents(
         &self,
         items: Vec<(String, String)>,

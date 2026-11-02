@@ -80,10 +80,7 @@ pub async fn get_data_folder(state: State<'_, AppState>) -> ApiResult<DataFolder
 #[specta::specta]
 pub async fn set_data_folder(app: AppHandle, folder: String) -> ApiResult<()> {
     if !CAN_CHANGE {
-        return Err(ApiError {
-            kind: "invalid".into(),
-            message: "Changing the data folder is not available in development builds.".into(),
-        });
+        return Err(ApiError::invalid("Changing the data folder is not available in development builds."));
     }
     let config = paths::config_file()
         .ok_or_else(|| ApiError::internal("no config folder on this system"))?;

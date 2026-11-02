@@ -9,7 +9,7 @@ use cairn_core::tasks::{
 };
 use tauri::{AppHandle, State};
 
-use crate::error::{ApiError, ApiResult};
+use crate::error::ApiResult;
 use crate::events::{Entity, emit_changed};
 use crate::state::AppState;
 
@@ -280,12 +280,7 @@ pub async fn dev_seed_tasks(
     state: State<'_, AppState>,
     seed: TaskSeed,
 ) -> ApiResult<()> {
-    if !cfg!(debug_assertions) {
-        return Err(ApiError {
-            kind: "invalid".into(),
-            message: "Demo data is only available in development builds.".into(),
-        });
-    }
+    crate::error::dev_only()?;
     state
         .with_db(move |db| tasks::seed_if_missing(db, seed))
         .await?;

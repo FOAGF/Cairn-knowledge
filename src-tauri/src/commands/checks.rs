@@ -87,10 +87,7 @@ pub(crate) async fn run_check(app: AppHandle, input: CheckInput) -> ApiResult<Ch
         .with_db(move |db| check_context(db, &category_id, &body))
         .await?;
     let messages = prompts::check(&ctx.category, &ctx.groups, &ctx.glossary, &input.body)?;
-    let opts = CallOptions {
-        timeout_s: Some(60),
-        ..CallOptions::default()
-    };
+    let opts = CallOptions::new(None, None, 60);
     let (reply, _) = llm::complete_json(&app, &sidecars, &resolved.target, &messages, &opts).await?;
 
     let shown = input.shown_terms.clone().unwrap_or_default();
@@ -146,8 +143,6 @@ const DUPLICATE_LIMIT: usize = 3;
 /// Candidates fetched before ranking; enough that excluding one page and merging pieces of the
 /// same page still leaves [`DUPLICATE_LIMIT`].
 const CANDIDATES: u32 = 30;
-/// Pieces per `embed.documents` call (PROTOCOL.md "Concurrency").
-const EMBED_BATCH: usize = 8;
 
 /// The text of a piece as the indexer embeds it: heading path, then the text.
 fn piece_text(heading: &str, text: &str) -> String {
@@ -248,21 +243,10 @@ pub async fn find_duplicates(
     if items.is_empty() {
         items.push((input.title.clone(), String::new()));
     }
-    let mut embedded: Result<Vec<Vec<f32>>, NoMeaning> = Ok(Vec::new());
-    for batch in items.chunks(EMBED_BATCH) {
-        match sidecars.embed_documents(batch.to_vec()).await {
-            Ok(vs) => {
-                if let Ok(all) = &mut embedded {
-                    all.extend(vs);
-                }
-            }
-            Err(e) => {
-                tracing::info!(kind = %e.kind, "duplicate check by meaning unavailable: {}", e.message);
-                embedded = Err(e.into());
-                break;
-            }
-        }
-    }
+    let embedded = sidecars.embed_all(items).await.map_err(|e| {
+        tracing::info!(kind = %e.kind, "duplicate check by meaning unavailable: {}", e.message);
+        NoMeaning::from(e)
+    });
     state
         .with_db(move |db| duplicate_report(db, &input, embedded))
         .await
@@ -298,11 +282,7 @@ pub async fn keep_one_topic(
         })
         .await?;
     let messages = prompts::keep_one_topic(&input.topic, &input.topics, &input.body, &glossary_text)?;
-    let opts = CallOptions {
-        stream_id: input.stream_id.clone(),
-        timeout_s: Some(300),
-        ..CallOptions::default()
-    };
+    let opts = CallOptions::new(input.stream_id.as_deref(), None, 300);
     let topic = input.topic;
     jobs.run(input.stream_id, async move {
         let sidecars = app.state::<Sidecars>();

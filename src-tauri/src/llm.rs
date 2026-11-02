@@ -38,6 +38,8 @@ pub struct LlmDelta {
 pub const UNAVAILABLE: &str = "llm_unavailable";
 /// The kind when *Stop* ended the call.
 pub const CANCELLED: &str = "cancelled";
+/// The kind when a JSON reply couldn't be read, even after asking again.
+pub const UNREADABLE: &str = "ai_unreadable";
 
 pub fn unavailable(message: impl Into<String>) -> ApiError {
     ApiError {
@@ -150,6 +152,19 @@ pub struct CallOptions {
     /// FR-LLM-AS-12: turn on the provider's web search, with at most this many searches
     /// (PROTOCOL.md `web_search`). `None` = no web search.
     pub web_search: Option<u32>,
+}
+
+impl CallOptions {
+    /// A call of at most `timeout_s` seconds per attempt, streamed under `stream` when given, at
+    /// the `effort` picked (or the model's default).
+    pub fn new(stream: Option<&str>, effort: Option<String>, timeout_s: u32) -> CallOptions {
+        CallOptions {
+            stream_id: stream.map(str::to_string),
+            timeout_s: Some(timeout_s),
+            effort,
+            ..CallOptions::default()
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -307,17 +322,27 @@ pub async fn complete_json(
     if let Some(v) = replies::json_object(&first.text) {
         return Ok((v, first));
     }
-    tracing::debug!("JSON reply unreadable, retrying once");
-    let mut again = messages.to_vec();
-    again.push(LlmMessage::new(Role::Assistant, first.text.clone()));
-    again.push(cairn_core::prompts::check_retry()?);
-    let second = complete(app, sidecars, target, &again, opts).await?;
+    let second = complete(app, sidecars, target, &json_retry(messages, &first.text)?, opts).await?;
     match replies::json_object(&second.text) {
         Some(v) => Ok((v, second)),
-        None => Err(ApiError {
-            kind: "ai_unreadable".into(),
-            message: "The model's answer couldn't be read, even after asking again.".into(),
-        }),
+        None => Err(unreadable()),
+    }
+}
+
+/// The messages for the second try of a JSON call: the call's, the unreadable reply, `check-retry`.
+pub(crate) fn json_retry(messages: &[LlmMessage], unreadable_reply: &str) -> ApiResult<Vec<LlmMessage>> {
+    tracing::debug!("JSON reply unreadable, retrying once");
+    let mut again = messages.to_vec();
+    again.push(LlmMessage::new(Role::Assistant, unreadable_reply.to_string()));
+    again.push(cairn_core::prompts::check_retry()?);
+    Ok(again)
+}
+
+/// The error kind of [`UNREADABLE`]: the second reply of a JSON call couldn't be read either.
+pub(crate) fn unreadable() -> ApiError {
+    ApiError {
+        kind: UNREADABLE.into(),
+        message: "The model's answer couldn't be read, even after asking again.".into(),
     }
 }
 

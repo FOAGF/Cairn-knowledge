@@ -9,13 +9,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
 import { usePage, usePageList, type PageSummary } from '@/api/knowledge'
-import { useSettings } from '@/api/settings'
 import { type MeaningStatus, rankedByMeaning } from '@/api/search'
 import { MeaningNotice } from '@/components/shared/MeaningNotice'
-import type { Match } from '@/lib/search'
 import { cn } from '@/lib/utils'
 import { useT } from '@/i18n'
 import type { StepState } from './usePipeline'
+import type { DuplicateMatch } from './useSimilar'
 import { useCategoryList } from '@/api/categories'
 
 // ------------------------------------------------------------------- Stepper
@@ -154,21 +153,18 @@ export function PagePickerDialog({ open, onClose, onPick }: { open: boolean; onC
 export function DuplicateMatches({
   matches,
   loading,
-  offline,
   mergeLabel,
   onMerge,
   footer,
   meaning,
 }: {
-  /** `likely` (from `find_duplicates`) says "likely the same topic"; without it the Settings score decides. */
-  matches: (Match & { likely?: boolean })[]
+  /** `likely` (from `find_duplicates`) says "likely the same topic". */
+  matches: DuplicateMatch[]
   loading?: boolean
-  offline?: boolean
   mergeLabel?: string
   onMerge: (p: PageSummary) => void
   footer?: React.ReactNode
-  /** Set when the scores are cosine similarities from search by meaning ("Find similar pages"): shows
-   *  the likely-duplicate label and the FR-RAG-IX-6 warning. Unset for the keyword-based draft check. */
+  /** How far search by meaning could be used (FR-RAG-IX-6): keyword matches show no score. */
   meaning?: MeaningStatus
 }) {
   // Without the meaning index (or without a search model, D-82) the matches are keyword matches:
@@ -176,8 +172,6 @@ export function DuplicateMatches({
   const showScore = !meaning || rankedByMeaning(meaning)
   const t = useT()
   const categories = useCategoryList()
-  const likelyScore = useSettings().duplicateScore ?? 0.8
-  const isLikely = (m: Match & { likely?: boolean }) => m.likely ?? (!!meaning && showScore && m.score >= likelyScore)
   const [preview, setPreview] = useState<PageSummary | null>(null)
   if (loading)
     return (
@@ -187,11 +181,6 @@ export function DuplicateMatches({
     )
   return (
     <div className="space-y-3">
-      {offline && (
-        <Badge variant="secondary" className="rounded-full">
-          {t.creation.matches.offline}
-        </Badge>
-      )}
       <MeaningNotice meaning={meaning} />
       {!matches.length && <p className="text-sm text-muted-foreground">{t.creation.matches.none}</p>}
       {matches.map((m) => (
@@ -202,7 +191,7 @@ export function DuplicateMatches({
               <CategoryBadge category={categories.find((p) => p.id === m.page.categoryId)} />
             </div>
             <span className="flex shrink-0 items-center gap-2">
-              {isLikely(m) ? (
+              {m.likely ? (
                 <Badge className="bg-tint-amber text-tint-amber-fg">{t.creation.matches.likely}</Badge>
               ) : (
                 <Badge variant="outline" className="font-normal">{t.creation.matches.related}</Badge>
@@ -217,7 +206,7 @@ export function DuplicateMatches({
               {t.creation.matches.open}
             </Button>
             {/* FR-KN-DU-1: *Merge…* is the obvious next step for a likely duplicate; for a related page it stays possible, but quieter. */}
-            <Button size="sm" variant={isLikely(m) ? 'default' : 'ghost'} onClick={() => onMerge(m.page)}>
+            <Button size="sm" variant={m.likely ? 'default' : 'ghost'} onClick={() => onMerge(m.page)}>
               {mergeLabel ?? t.creation.matches.mergeIntoThis}
             </Button>
           </div>

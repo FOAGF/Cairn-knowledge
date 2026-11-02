@@ -186,12 +186,6 @@ export const commands = {
 	 *  with `meaning.state = unavailable`.
 	 */
 	searchHybrid: (query: SearchQuery) => __TAURI_INVOKE<HybridResult>("search_hybrid", { query }),
-	/**
-	 *  *Find similar pages* (FR-RAG-SR-5): pages closest in meaning to `page_id` (score = cosine
-	 *  similarity, best first; `matchedBy = meaning`). Without the index, falls back to a keyword
-	 *  search on the title with `meaning.state = unavailable`.
-	 */
-	findSimilarPages: (pageId: string, limit: number | null) => __TAURI_INVOKE<HybridResult>("find_similar_pages", { pageId, limit }),
 	/**  Vector index progress (Settings › Search, FR-RAG-IX-5). Changes arrive as the `IndexProgress` event. */
 	getIndexProgress: () => __TAURI_INVOKE<IndexProgress>("get_index_progress"),
 	listConversations: () => __TAURI_INVOKE<Conversation[]>("list_conversations"),

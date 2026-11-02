@@ -5,7 +5,6 @@ import { useEffect } from 'react'
 import {
   commands,
   events,
-  type HybridResult,
   type IndexProgress,
   type LintHit,
   type LintOptions,
@@ -62,9 +61,6 @@ export function rebuildSearchIndex() {
  */
 export const rankedByMeaning = (meaning: MeaningStatus) => meaning.state !== 'unavailable' && meaning.state !== 'not_installed'
 
-/** Cosine similarity from which a page counts as a likely duplicate (M0-b threshold, 256 dimensions). */
-export const LIKELY_DUPLICATE_SCORE = 0.87
-
 /**
  * Keyword + meaning search merged (FR-RAG-SR-1, -4, -5). Slower than `useSearch` (the query is
  * embedded first), so callers enable it only after a pause in typing. `data` is undefined until
@@ -77,11 +73,6 @@ export function useHybridSearch(query: SearchQuery, enabled: boolean) {
     queryFn: () => commands.searchHybrid(query),
     enabled: enabled && query.text.trim().length > 0,
   })
-}
-
-/** Pages closest in meaning to a saved page (*Find similar pages*, FR-RAG-SR-5). */
-export function findSimilarPages(pageId: string, limit = 10): Promise<HybridResult> {
-  return commands.findSimilarPages(pageId, limit)
 }
 
 /** Index progress for Settings › Search: the current value, then every `IndexProgress` event. */

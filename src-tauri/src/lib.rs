@@ -145,7 +145,6 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             //
             // Search by meaning (M4)
             commands::search::search_hybrid,
-            commands::search::find_similar_pages,
             commands::search::get_index_progress,
             //
             // Creation flows (M5): conversations, files in the chat, checks, merge, task drafts

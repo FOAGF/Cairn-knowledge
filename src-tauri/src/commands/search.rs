@@ -3,11 +3,10 @@
 use std::sync::Arc;
 
 use cairn_core::hybrid;
-use cairn_core::knowledge;
 use cairn_core::lint::{self, LintHit, LintOptions};
-use cairn_core::search::{self, MatchedBy, SearchHit, SearchKind, SearchQuery};
+use cairn_core::search::{self, SearchHit, SearchQuery};
 use cairn_core::settings;
-use cairn_core::vectors::{self, IndexStatus, MeaningHit};
+use cairn_core::vectors::{self, IndexStatus};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::{AppHandle, Manager, State};
@@ -123,20 +122,6 @@ pub async fn search_hybrid(
 
 const DEFAULT_LIMIT: u32 = 20;
 
-/// A meaning-only hit as a search result: score = cosine similarity, snippet = start of the piece.
-fn meaning_hit(h: MeaningHit) -> SearchHit {
-    SearchHit {
-        kind: h.kind,
-        id: h.id,
-        title: h.title,
-        key: h.key,
-        category_id: h.category_id,
-        snippet: hybrid::excerpt(&h.text),
-        score: f64::from(h.score),
-        matched_by: MatchedBy::Meaning,
-    }
-}
-
 /// Why search by meaning wasn't used.
 pub(crate) enum NoMeaning {
     /// No search model is installed (D-82).
@@ -189,63 +174,6 @@ pub(crate) fn sidecar_detail(e: SidecarError) -> String {
         Some(h) if !h.is_empty() => format!("{} ({h})", e.message),
         _ => e.message,
     }
-}
-
-/// *Find similar pages* (FR-RAG-SR-5): pages closest in meaning to `page_id` (score = cosine
-/// similarity, best first; `matchedBy = meaning`). Without the index, falls back to a keyword
-/// search on the title with `meaning.state = unavailable`.
-#[tauri::command]
-#[specta::specta]
-pub async fn find_similar_pages(
-    state: State<'_, AppState>,
-    sidecars: State<'_, Sidecars>,
-    page_id: String,
-    limit: Option<u32>,
-) -> ApiResult<HybridResult> {
-    let limit = limit.unwrap_or(10);
-    let installed = sidecars.model_installed();
-    state
-        .with_db(move |db| {
-            let conn = db.conn();
-            let filter = SearchQuery {
-                text: String::new(),
-                kinds: Some(vec![SearchKind::Page]),
-                include_archived: Some(false),
-                limit: Some(limit),
-                ..SearchQuery::default()
-            };
-            let status = vectors::status(conn)?;
-            let similar = vectors::similar_items(conn, SearchKind::Page, &page_id, &filter)?;
-            if !similar.is_empty() || status.items_ready >= status.items {
-                return Ok(HybridResult {
-                    hits: similar.into_iter().map(meaning_hit).collect(),
-                    meaning: meaning_status(&status, None),
-                });
-            }
-
-            // Not everything is indexed yet (maybe this page too): use the title's words instead.
-            let title = knowledge::get_page(conn, &page_id)?.title;
-            let by_title = SearchQuery {
-                text: title,
-                limit: Some(limit + 1),
-                ..filter
-            };
-            let mut hits = search::search(conn, &by_title)?;
-            hits.retain(|h| h.id != page_id);
-            hits.truncate(limit as usize);
-            Ok(HybridResult {
-                hits,
-                meaning: meaning_status(
-                    &status,
-                    Some(if installed {
-                        "This page is not indexed by meaning yet; showing pages with similar words in the title.".into()
-                    } else {
-                        NoMeaning::NotInstalled
-                    }),
-                ),
-            })
-        })
-        .await
 }
 
 /// Vector index progress (Settings › Search, FR-RAG-IX-5). Changes arrive as the `IndexProgress` event.

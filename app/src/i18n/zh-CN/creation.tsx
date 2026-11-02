@@ -38,7 +38,6 @@ export const creation: Messages['creation'] = {
   matches: {
     mergeIntoThis: '合并到此页面',
     looking: '正在查找相似页面…',
-    offline: '关键词 + 本地嵌入',
     none: '未找到相似页面，这看起来是新内容。',
     likely: '可能是同一主题',
     related: '相关',

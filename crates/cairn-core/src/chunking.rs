@@ -30,7 +30,7 @@ use crate::search::{is_han, strip_markdown};
 const PATH_SEP: &str = " › ";
 
 /// Cost of one character in quarter tokens: Han characters 4, anything else 1.
-fn quarter_cost(c: char) -> usize {
+pub(crate) fn quarter_cost(c: char) -> usize {
     if is_han(c) { 4 } else { 1 }
 }
 

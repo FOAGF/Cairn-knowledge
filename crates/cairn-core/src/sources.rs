@@ -5,7 +5,7 @@
 //! Token counts are estimates ([`crate::chunking::estimate_tokens`]); the budgets leave room for
 //! that.
 
-use crate::chunking::estimate_tokens;
+use crate::chunking::{estimate_tokens, quarter_cost};
 use crate::prompts::EXCERPT_GAP;
 
 /// Tokens kept free for the prompt's own text and the reply.
@@ -89,13 +89,18 @@ fn cut_long(text: &str, max: usize) -> Vec<String> {
                 out.push(current.trim_end().to_string());
             }
             current.clear();
+            // A running count (in quarter tokens, as `estimate_tokens` counts), not a recount of
+            // `current` per character.
+            let mut quarters = 0;
             for c in line.chars() {
                 current.push(c);
-                if estimate_tokens(&current) >= max {
+                quarters += quarter_cost(c);
+                if quarters.div_ceil(4) >= max {
                     out.push(std::mem::take(&mut current));
+                    quarters = 0;
                 }
             }
-            used = estimate_tokens(&current);
+            used = quarters.div_ceil(4);
             continue;
         }
         if used + n > max {
@@ -273,6 +278,13 @@ mod tests {
         let ps = pieces(&han);
         assert!(ps.iter().all(|p| estimate_tokens(p) <= MAX_PIECE_TOKENS));
         assert_eq!(ps.concat().chars().count(), 3_000);
+        // A mixed line: every piece but the last ends at the first character that reaches the size.
+        let mixed = "ab字".repeat(2_000);
+        let ps = pieces(&mixed);
+        let (last, full) = ps.split_last().unwrap();
+        assert!(full.iter().all(|p| estimate_tokens(p) == PIECE_TOKENS));
+        assert!(estimate_tokens(last) <= PIECE_TOKENS);
+        assert_eq!(ps.concat(), mixed);
         // A table without blank lines is cut at line ends.
         let table = (0..400)
             .map(|i| format!("| row {i} | {} |", "cell ".repeat(10)))

@@ -5,7 +5,7 @@ import { Check, ChevronDown, FileText, FolderKanban, Tag, Trash2, TriangleAlert 
 import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { commands } from '@/api/bindings'
-import { type ChatMessage, type DraftCard as Card, reviseDraft, updateMessage } from '@/api/conversations'
+import { type ChatMessage, type DraftCard as Card, fetchMessage, reviseDraft, updateMessage } from '@/api/conversations'
 import { useGroups } from '@/api/knowledge'
 import { useCategoryList } from '@/api/categories'
 import { MarkdownView } from '@/components/shared/MarkdownView'
@@ -45,17 +45,20 @@ export function DraftCard({ message }: { message: ChatMessage }) {
     void patch({ categoryId, groupId: null, groupName: null }).then(() =>
       commands
         .checkPage({ categoryId, title: draft.title, body: draft.body, shownTerms: draft.shownTerms, jobId: null })
-        .then((r) =>
-          updateMessage(message.id, {
+        .then(async (r) => {
+          // The check takes a while: build on the card as it is now, which may have been reviewed,
+          // discarded or moved to another category meanwhile.
+          const now = (await fetchMessage(message.conversationId, message.id))?.draft
+          if (!now || now.state !== 'draft' || now.categoryId !== categoryId) return
+          await updateMessage(message.id, {
             draft: {
-              ...draft,
-              categoryId,
+              ...now,
               groupId: r.group?.kind === 'existing' ? r.group.groupId : null,
               groupName: r.group?.kind === 'new' ? r.group.name : null,
-              tags: r.tags.length ? r.tags : draft.tags,
+              tags: r.tags.length ? r.tags : now.tags,
             },
-          }),
-        )
+          })
+        })
         .catch(() => undefined),
     )
   }

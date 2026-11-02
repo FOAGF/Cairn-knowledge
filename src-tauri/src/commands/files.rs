@@ -11,6 +11,7 @@
 //!    drafts (`draft-file`, or excerpts / parts per `cairn_core::sources`, FR-KN-UP-4a), streamed
 //!    as `LlmDelta` with the message id as stream id; 5. the `check` call (default model) fills the
 //!    card's group, tags, topics and glossary suggestions; 6. the message gets its card.
+//!
 //! Every step updates the stored message and emits `DataChanged { conversations }`. A failure puts
 //! a `MessageError` on the message (with `can_use_as_is` when the text was read).
 //!

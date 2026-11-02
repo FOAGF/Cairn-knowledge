@@ -721,8 +721,10 @@ pub fn to_blob(v: &[f32]) -> Vec<u8> {
 
 /// The inverse of [`to_blob`]. Trailing bytes that don't make a whole float are ignored.
 pub fn from_blob(b: &[u8]) -> Vec<f32> {
-    b.chunks_exact(4)
-        .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+    b.as_chunks::<4>()
+        .0
+        .iter()
+        .map(|c| f32::from_le_bytes(*c))
         .collect()
 }
 
@@ -741,7 +743,7 @@ mod tests {
 
     /// A normalised vector pointing along axis `i`, plus `mix` along axis `j`.
     fn axis(i: usize, j: usize, mix: f32) -> Vec<f32> {
-        let mut v = vec![0.0; DIMS];
+        let mut v = [0.0; DIMS];
         v[i] = 1.0;
         v[j] += mix;
         let n = v.iter().map(|x| x * x).sum::<f32>().sqrt();

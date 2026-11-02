@@ -1205,10 +1205,7 @@ fn deleting_the_target_or_a_task_removes_rows() {
     // Deleting the target page drops rows pointing at it.
     delete_page(&mut e.db, &target.id).unwrap();
     assert_eq!(e.count("SELECT COUNT(*) FROM mentions"), 0);
-    assert_eq!(
-        get_page(e.db.conn(), &p.id).unwrap().body.contains("page:"),
-        true
-    );
+    assert!(get_page(e.db.conn(), &p.id).unwrap().body.contains("page:"));
 }
 
 #[test]

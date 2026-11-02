@@ -1604,7 +1604,7 @@ fn seed_is_idempotent_and_never_overwrites() {
     let n = dump(&e);
     assert_eq!(
         &n[..5],
-        &[2, 4, 1, 1, 3][..5].iter().map(|x| *x).collect::<Vec<_>>()[..],
+        &[2, 4, 1, 1, 3],
         "edit added today's version only"
     );
     // New tasks continue after the highest seeded number.

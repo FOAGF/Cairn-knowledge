@@ -206,10 +206,10 @@ pub fn get_by_keys(conn: &Connection, keys: &[String]) -> Result<Vec<Task>> {
     let mut seen = HashSet::new();
     let mut out = Vec::new();
     for k in keys {
-        if let Some(t) = find(conn, k.trim())? {
-            if seen.insert(t.id.clone()) {
-                out.push(t);
-            }
+        if let Some(t) = find(conn, k.trim())?
+            && seen.insert(t.id.clone())
+        {
+            out.push(t);
         }
     }
     Ok(out)

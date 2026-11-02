@@ -319,10 +319,10 @@ fn key_base(name: &str) -> String {
             .unwrap_or_default()
     };
     // Top up a too-short key from the first word.
-    if key.chars().count() < KEY_MIN_LEN {
-        if let Some(first) = words.first() {
-            key = first.chars().take(3).collect();
-        }
+    if key.chars().count() < KEY_MIN_LEN
+        && let Some(first) = words.first()
+    {
+        key = first.chars().take(3).collect();
     }
     // A key must start with a letter and have the minimum length.
     let key = key

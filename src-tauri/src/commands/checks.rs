@@ -338,7 +338,7 @@ mod tests {
     const DIMS: usize = 8;
 
     fn axis(i: usize, j: usize, mix: f32) -> Vec<f32> {
-        let mut v = vec![0.0; DIMS];
+        let mut v = [0.0; DIMS];
         v[i] = 1.0;
         v[j] += mix;
         let n = v.iter().map(|x| x * x).sum::<f32>().sqrt();

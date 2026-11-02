@@ -835,7 +835,7 @@ fn usage_lists_pages_then_tasks_newest_first_with_excerpts() {
     );
     let hit = &all.items[0];
     assert_eq!(hit.matched, "MMU-07");
-    assert_eq!(hit.after.chars().count() <= 51, true);
+    assert!(hit.after.chars().count() <= 51);
     assert!(hit.before.starts_with('…'));
     assert!(hit.before.ends_with("link before the "), "{:?}", hit.before);
     assert!(!hit.before.contains('*') && !hit.before.contains("page:abc"));

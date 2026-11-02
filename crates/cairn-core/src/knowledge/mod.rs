@@ -745,10 +745,10 @@ pub(crate) fn update_page_in(
     if p.title != old.title {
         check_title_free(conn, &p.category_id, &p.title, Some(&p.id))?;
     }
-    if p.group_id != old.group_id {
-        if let Some(g) = &p.group_id {
-            check_group(conn, &p.category_id, g)?;
-        }
+    if p.group_id != old.group_id
+        && let Some(g) = &p.group_id
+    {
+        check_group(conn, &p.category_id, g)?;
     }
     commit_change(conn, &mut p, st)?;
     Ok(p)

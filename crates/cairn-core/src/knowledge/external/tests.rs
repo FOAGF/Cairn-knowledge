@@ -1346,7 +1346,7 @@ fn a_big_scan_holds_the_database_only_briefly() {
     let started = Instant::now();
     let n = plan.apply_some(&mut e.db, usize::MAX).unwrap();
     let took = started.elapsed();
-    assert!(n >= 1 && n < 1001, "{n} items in one transaction");
+    assert!((1..1001).contains(&n), "{n} items in one transaction");
     assert!(took < Duration::from_millis(900), "one transaction took {took:?}");
     while plan.apply_some(&mut e.db, usize::MAX).unwrap() > 0 {}
     assert!(plan.is_done());

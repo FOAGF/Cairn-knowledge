@@ -547,7 +547,7 @@ pub fn parse_name(name: &str) -> Option<(BackupKind, Option<String>)> {
 
 /// Deletes all but the newest `keep` of `files` (sort key: UTC time as RFC 3339 or a stamp that
 /// sorts the same way; an unparseable time never gets here).
-fn delete_beyond(files: &mut Vec<(String, PathBuf)>, keep: usize) {
+fn delete_beyond(files: &mut [(String, PathBuf)], keep: usize) {
     files.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| b.1.cmp(&a.1)));
     for (_, path) in files.iter().skip(keep) {
         match std::fs::remove_file(path) {

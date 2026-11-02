@@ -7,6 +7,7 @@
 
 use std::collections::HashMap;
 use std::future::Future;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use cairn_core::prompts::{LlmMessage, ModelRole, Role};
@@ -345,20 +346,23 @@ pub async fn context_size(sidecars: &Sidecars, resolved: &Resolved) -> Option<u3
 // ---------------------------------------------------------------- *Stop*
 
 /// Running work that *Stop* can end, by id: a stream id, or the assistant message of a chat job.
+/// Each start gets a new number, so a job that ends forgets only its own entry, never that of a
+/// newer job started under the same id.
 #[derive(Default)]
 pub struct Jobs {
-    running: Mutex<HashMap<String, AbortHandle>>,
+    running: Mutex<HashMap<String, (u64, AbortHandle)>>,
+    started: AtomicU64,
 }
 
 impl Jobs {
-    fn lock(&self) -> std::sync::MutexGuard<'_, HashMap<String, AbortHandle>> {
+    fn lock(&self) -> std::sync::MutexGuard<'_, HashMap<String, (u64, AbortHandle)>> {
         self.running.lock().unwrap_or_else(|e| e.into_inner())
     }
 
     /// Ends the job; `false` when nothing with that id is running.
     pub fn cancel(&self, id: &str) -> bool {
         match self.lock().remove(id) {
-            Some(handle) => {
+            Some((_, handle)) => {
                 handle.abort();
                 true
             }
@@ -370,20 +374,43 @@ impl Jobs {
         self.lock().contains_key(id)
     }
 
+    /// Stops a job running under `id`, then spawns `task` and records it under a new number. The
+    /// lock is held until the entry is in, so a task that ends at once still finds it.
+    fn start<T: Send + 'static>(
+        &self,
+        id: &str,
+        task: impl FnOnce(u64) -> tokio::task::JoinHandle<T>,
+    ) -> (u64, tokio::task::JoinHandle<T>) {
+        self.cancel(id);
+        let number = self.started.fetch_add(1, Ordering::Relaxed);
+        let mut running = self.lock();
+        let handle = task(number);
+        running.insert(id.to_string(), (number, handle.abort_handle()));
+        (number, handle)
+    }
+
+    /// Forgets the job started as `number`, unless a newer job has taken its id.
+    fn forget(&self, id: &str, number: u64) {
+        let mut running = self.lock();
+        if running.get(id).is_some_and(|(n, _)| *n == number) {
+            running.remove(id);
+        }
+    }
+
     /// Starts `work` in the background under `id` (a job with the same id is stopped first) and
     /// forgets it when it ends. Aborting drops the future, which also cancels a running stream.
     pub fn spawn<F>(self: &Arc<Self>, id: String, work: F)
     where
         F: Future<Output = ()> + Send + 'static,
     {
-        self.cancel(&id);
         let jobs = Arc::clone(self);
         let key = id.clone();
-        let task = tokio::spawn(async move {
-            work.await;
-            jobs.lock().remove(&key);
+        self.start(&id, move |number| {
+            tokio::spawn(async move {
+                work.await;
+                jobs.forget(&key, number);
+            })
         });
-        self.lock().insert(id, task.abort_handle());
     }
 
     /// Runs `work` and waits for it; with an id, *Stop* (`cancel_job(id)`) ends it and the result is
@@ -396,11 +423,9 @@ impl Jobs {
         let Some(id) = id else {
             return work.await;
         };
-        self.cancel(&id);
-        let task = tokio::spawn(work);
-        self.lock().insert(id.clone(), task.abort_handle());
+        let (number, task) = self.start(&id, |_| tokio::spawn(work));
         let result = task.await;
-        self.lock().remove(&id);
+        self.forget(&id, number);
         match result {
             Ok(r) => r,
             Err(e) if e.is_cancelled() => Err(cancelled()),
@@ -415,4 +440,34 @@ impl Jobs {
 #[specta::specta]
 pub async fn cancel_job(jobs: State<'_, Arc<Jobs>>, id: String) -> ApiResult<bool> {
     Ok(jobs.cancel(&id))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A job replaced by a new one under the same id must not forget the new one when it ends,
+    /// or *Stop* would find nothing to stop.
+    #[tokio::test]
+    async fn a_replaced_job_leaves_its_successor_stoppable() {
+        let jobs = Arc::new(Jobs::default());
+        let run = |jobs: &Arc<Jobs>| {
+            let jobs = Arc::clone(jobs);
+            tokio::spawn(async move {
+                jobs.run(Some("job".into()), std::future::pending::<ApiResult<()>>())
+                    .await
+            })
+        };
+        let first = run(&jobs);
+        while !jobs.is_running("job") {
+            tokio::task::yield_now().await;
+        }
+        let second = run(&jobs);
+        // The second start stops the first, which then ends.
+        assert_eq!(first.await.unwrap().unwrap_err().kind, CANCELLED);
+        assert!(jobs.is_running("job"));
+        assert!(jobs.cancel("job"));
+        assert_eq!(second.await.unwrap().unwrap_err().kind, CANCELLED);
+        assert!(!jobs.is_running("job"));
+    }
 }

@@ -4,14 +4,17 @@ import { useNavigate } from 'react-router'
 import { useT } from '@/i18n'
 import { cn } from '@/lib/utils'
 
-/** "Ask anything" bar. Sends the question to the Assistant page. `large` is Home's (FR-HOME-1). */
-export function AskBar({ size = 'default' }: { size?: 'default' | 'large' }) {
+/**
+ * "Ask anything" bar. Sends the question to the Assistant page. `large` is Home's (FR-HOME-1);
+ * `scope` is a category page's, which asks within that category.
+ */
+export function AskBar({ size = 'default', scope }: { size?: 'default' | 'large'; scope?: { id: string; name: string } }) {
   const [q, setQ] = useState('')
   const navigate = useNavigate()
   const t = useT()
   const submit = () => {
     if (!q.trim()) return
-    navigate(`/assistant?q=${encodeURIComponent(q.trim())}`)
+    navigate(`/assistant?q=${encodeURIComponent(q.trim())}${scope ? `&scope=${encodeURIComponent(scope.id)}` : ''}`)
     setQ('')
   }
   return (
@@ -30,14 +33,14 @@ export function AskBar({ size = 'default' }: { size?: 'default' | 'large' }) {
       <input
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        placeholder={t.layout.askBar.placeholder}
-        className="h-full flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
+        placeholder={scope ? t.categories.page.askPlaceholder(scope.name) : t.layout.askBar.placeholder}
+        className="h-full min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
       />
       <button
         type="submit"
         className="flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
         disabled={!q.trim()}
-        aria-label={t.layout.askBar.ask}
+        aria-label={scope ? t.categories.page.ask : t.layout.askBar.ask}
       >
         <SendHorizontal className="size-4" />
       </button>

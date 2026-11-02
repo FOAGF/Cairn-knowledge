@@ -1,7 +1,7 @@
 // Keyword search over pages and tasks (FR-KN-UI-2; NFR-I18N-4 Chinese) and spelling/grammar
 // checks with native Harper (FR-KN-ED-6..8). Search results refresh on DataChanged { search }.
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect } from 'react'
+import { useCallback } from 'react'
 import {
   commands,
   events,
@@ -13,7 +13,7 @@ import {
   type SearchQuery,
   type SidecarStatus,
 } from './bindings'
-import { isTauri } from './client'
+import { isTauri, type TauriEvent, useTauriEvent } from './client'
 
 export type { LintCategory, LintHit, LintOptions, SearchHit, SearchKind, SearchQuery } from './bindings'
 export type { HybridResult, IndexProgress, MatchedBy, MeaningStatus, SidecarStatus, WorkerStatus } from './bindings'
@@ -89,7 +89,7 @@ export function useSidecarStatus(): SidecarStatus | undefined {
 export function useEventQuery<T>(
   queryKey: string[],
   read: () => Promise<T>,
-  event: { listen: (handler: (e: { payload: T }) => void) => Promise<() => void> },
+  event: TauriEvent<T>,
 ): T | undefined {
   const client = useQueryClient()
   const { data } = useQuery({
@@ -100,17 +100,7 @@ export function useEventQuery<T>(
     staleTime: 0,
   })
   const key = queryKey.join('/')
-  useEffect(() => {
-    if (!isTauri()) return
-    let unlisten: (() => void) | undefined
-    let cancelled = false
-    void event
-      .listen(({ payload }) => client.setQueryData(key.split('/'), payload))
-      .then((fn) => (cancelled ? fn() : (unlisten = fn)))
-    return () => {
-      cancelled = true
-      unlisten?.()
-    }
-  }, [client, key, event])
+  const onEvent = useCallback((payload: T) => client.setQueryData(key.split('/'), payload), [client, key])
+  useTauriEvent(event, onEvent)
   return data
 }

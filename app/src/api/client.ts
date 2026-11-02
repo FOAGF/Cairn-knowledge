@@ -8,7 +8,7 @@
 import { MutationCache, QueryClient } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { toast } from 'sonner'
-import { type ApiError, type Entity, events } from './bindings'
+import { type ApiError, type DataChanged, type Entity, events } from './bindings'
 
 /** True inside the Tauri window; false in a plain browser tab (e.g. the Vite URL opened directly). */
 export const isTauri = () => typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
@@ -44,26 +44,38 @@ export const queryClient = new QueryClient({
 /** Home's overview (api/home.ts) is built from these, so it is fetched again when one changes. */
 const HOME_SOURCES: Entity[] = ['tasks', 'knowledge', 'categories', 'conversations']
 
-/** Refetch the queries of every entity Rust reports as changed. Mount once, in the app shell. */
-export function useDataChangedSync() {
+/** A Rust event, as the generated `events` give them. */
+export type TauriEvent<T> = { listen: (handler: (e: { payload: T }) => void) => Promise<() => void> }
+
+/**
+ * Listens to a Rust event while the component is mounted. `onEvent` must be stable (a module
+ * function, or a `useCallback`), or the listener is renewed on every render.
+ */
+export function useTauriEvent<T>(event: TauriEvent<T>, onEvent: (payload: T) => void) {
   useEffect(() => {
     if (!isTauri()) return
     let unlisten: (() => void) | undefined
     let cancelled = false
-    void events.dataChanged
-      .listen(({ payload }) => {
-        if (payload.entities.includes('all')) void queryClient.invalidateQueries()
-        else {
-          for (const entity of payload.entities) void queryClient.invalidateQueries({ queryKey: [entity] })
-          if (payload.entities.some((e) => HOME_SOURCES.includes(e))) void queryClient.invalidateQueries({ queryKey: ['home'] })
-        }
-      })
-      .then((fn) => (cancelled ? fn() : (unlisten = fn)))
+    // `listen` resolves later: when the component is gone by then, stop listening at once.
+    void event.listen(({ payload }) => onEvent(payload)).then((fn) => (cancelled ? fn() : (unlisten = fn)))
     return () => {
       cancelled = true
       unlisten?.()
     }
-  }, [])
+  }, [event, onEvent])
+}
+
+function refetchChanged({ entities }: DataChanged) {
+  if (entities.includes('all')) void queryClient.invalidateQueries()
+  else {
+    for (const entity of entities) void queryClient.invalidateQueries({ queryKey: [entity] })
+    if (entities.some((e) => HOME_SOURCES.includes(e))) void queryClient.invalidateQueries({ queryKey: ['home'] })
+  }
+}
+
+/** Refetch the queries of every entity Rust reports as changed. Mount once, in the app shell. */
+export function useDataChangedSync() {
+  useTauriEvent(events.dataChanged, refetchChanged)
 }
 
 export type { Entity }

@@ -195,7 +195,7 @@ step_selftest_deb_as() {
     log "self-test: unpacking $(basename "$deb") into $root and starting it once (throw-away data folder $data)"
     dpkg-deb -x "$deb" "$root"
     if [ "$mode" = lite ] && [ -e "$root/usr/lib/Cairn/models" ]; then
-        rm -rf "${root:?}"; log "the lite package holds usr/lib/Cairn/models"; exit 1
+        rm -rf "${data:?}" "${root:?}"; log "the lite package holds usr/lib/Cairn/models"; exit 1
     fi
     out="$(env -u CAIRN_SIDECAR_PYTHON -u CAIRN_EMBED_MODEL_DIR CAIRN_DATA_DIR="$data" \
         timeout 300 "$root/usr/bin/cairn" --self-test | tail -n 1)" || rc=$?

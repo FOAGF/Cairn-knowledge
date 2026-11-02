@@ -180,7 +180,7 @@ fn status_as(db: &Db, computer: String) -> Result<BackupStatus> {
         is_default_folder: folder == db.paths().backups_dir(),
         last: list_folder(&folder)
             .into_iter()
-            .find(|f| f.computer.as_deref() == Some(computer.as_str())),
+            .find(|f| same_computer(&f.computer, &computer)),
         computer,
         error: state.error,
         error_at: state.error_at,
@@ -731,6 +731,9 @@ mod tests {
         assert!(st.is_default_folder && !st.check_failed && st.error.is_none());
         assert_eq!(st.computer, "TESTPC");
         assert_eq!(f.computer.as_deref(), Some("TESTPC"));
+        assert_eq!(st.last.unwrap().file_name, f.file_name);
+        // The computer name matches ignoring case, as retention does.
+        let st = status_as(&db, "testpc".into()).unwrap();
         assert_eq!(st.last.unwrap().file_name, f.file_name);
         assert_eq!(list(&db).unwrap().len(), 1);
         // No half-written file is left.

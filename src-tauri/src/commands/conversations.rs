@@ -161,7 +161,7 @@ pub async fn list_messages(
         .await
 }
 
-/// A message written by the UI: the user's question and the prototype's answers until M6.
+/// A message written as given, without a job (the probes use it to set up a conversation).
 #[tauri::command]
 #[specta::specta]
 pub async fn add_message(

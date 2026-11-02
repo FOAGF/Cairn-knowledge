@@ -27,8 +27,8 @@ export const commands = {
 	/**  A free task key for a new category's name (FR-PRJ-6). */
 	suggestCategoryKey: (name: string) => __TAURI_INVOKE<string>("suggest_category_key", { name }),
 	/**
-	 *  Development builds only: inserts the prototype's sample categories that the not-yet-migrated
-	 *  mock screens refer to. Insert-if-missing; never changes existing categories.
+	 *  Development builds only: inserts the sample categories that the dev seed's tasks and pages
+	 *  refer to. Insert-if-missing; never changes existing categories.
 	 */
 	devSeedCategories: (seeds: CategorySeed[]) => __TAURI_INVOKE<number>("dev_seed_categories", { seeds }),
 	getSettings: () => __TAURI_INVOKE<Settings>("get_settings"),
@@ -201,7 +201,7 @@ export const commands = {
 	/**  Stops the conversation's running jobs, then deletes it with its messages and file texts. */
 	deleteConversation: (id: string) => __TAURI_INVOKE<null>("delete_conversation", { id }),
 	listMessages: (conversationId: string) => __TAURI_INVOKE<ChatMessage[]>("list_messages", { conversationId }),
-	/**  A message written by the UI: the user's question and the prototype's answers until M6. */
+	/**  A message written as given, without a job (the probes use it to set up a conversation). */
 	addMessage: (conversationId: string, input: NewMessage) => __TAURI_INVOKE<ChatMessage>("add_message", { conversationId, input }),
 	/**
 	 *  Card changes from the UI (*Review* → `in_review`, saved, discarded). Releasing the file
@@ -1702,7 +1702,7 @@ export type NewPage = {
 	sourceInfo?: string | null,
 	origin?: PageOrigin | null,
 	originTaskId?: string | null,
-	/**  Default `not_checked`; the (simulated until M5) save pipeline may pass `checked`. */
+	/**  Default `not_checked`; the save pipeline may pass `checked`. */
 	checkStatus?: CheckStatus | null,
 };
 

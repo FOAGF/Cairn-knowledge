@@ -21,8 +21,6 @@
 //!
 //! - Status changes go through a callback (`StatusCallback`), so the link is tested without a Tauri
 //!   `AppHandle` (`src-tauri/tests/sidecar_link.rs` runs it against a fake sidecar).
-//!
-//! Owned by the M4 sidecar-link agent.
 
 use std::collections::HashMap;
 use std::path::PathBuf;

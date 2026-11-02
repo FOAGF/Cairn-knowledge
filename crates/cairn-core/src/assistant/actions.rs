@@ -14,8 +14,6 @@
 //! Applying: one row at a time, each in its own transaction, through `tasks` and `knowledge` (so
 //! history, activity, the index hooks and events work as for any edit). An `UpdatePage` whose page
 //! changed since the proposal (`base_updated_at`) fails with a message asking to try again.
-//!
-//! Owned by the M6 actions agent.
 
 use chrono::NaiveDate;
 use rusqlite::Connection;

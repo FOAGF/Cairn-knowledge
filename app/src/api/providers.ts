@@ -72,7 +72,7 @@ export function usableModels(providers: Provider[], models: ModelConfig[]): Mode
   return models.filter((m) => on.has(m.providerId))
 }
 
-/** Cached lists for code outside React (the fake assistant). Empty if not loaded yet. */
+/** Cached lists for code outside React. Empty if not loaded yet. */
 export function getModelsSnapshot(): ModelConfig[] {
   return queryClient.getQueryData<ModelConfig[]>(modelsKey) ?? EMPTY_MODELS
 }

@@ -35,7 +35,7 @@ export function useSearch(query: SearchQuery) {
   return { ...result, hits: enabled ? (result.data ?? EMPTY_HITS) : EMPTY_HITS }
 }
 
-/** For code outside React (command palette actions, fake assistant). */
+/** For code outside React (command palette actions). */
 export function searchOnce(query: SearchQuery): Promise<SearchHit[]> {
   return query.text.trim() ? commands.search(query) : Promise.resolve(EMPTY_HITS)
 }

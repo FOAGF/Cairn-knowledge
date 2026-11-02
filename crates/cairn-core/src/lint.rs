@@ -1,4 +1,4 @@
-//! Spelling and grammar checks with native Harper (FR-KN-ED-6..8). Owned by the M3 search agent.
+//! Spelling and grammar checks with native Harper (FR-KN-ED-6..8).
 //!
 //! Harper is loaded on first use and stays loaded (about 130 MB, measured in M0). Before linting,
 //! mentions (`#KEY`, `[..](page:..)`), image links, URLs, code and LaTeX formulas are masked so they aren't flagged;

@@ -129,7 +129,7 @@ export function useActivity(limit = 50): ActivityEvent[] {
   return useQuery({ queryKey: ['activity', limit], queryFn: () => commands.listActivity(limit) }).data ?? EMPTY_ACTIVITY
 }
 
-/** For code outside React (fake assistant, store actions): all tasks, from the cache when loaded. */
+/** For code outside React (store actions): all tasks, from the cache when loaded. */
 export function fetchAllTasks(): Promise<Task[]> {
   return queryClient.fetchQuery({ queryKey: ['tasks', 'list', ALL_TASKS], queryFn: () => commands.listTasks(ALL_TASKS) })
 }

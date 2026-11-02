@@ -137,7 +137,7 @@ pub struct NewPage {
     pub origin: Option<PageOrigin>,
     #[specta(optional)]
     pub origin_task_id: Option<String>,
-    /// Default `not_checked`; the (simulated until M5) save pipeline may pass `checked`.
+    /// Default `not_checked`; the save pipeline may pass `checked`.
     #[specta(optional)]
     pub check_status: Option<CheckStatus>,
 }

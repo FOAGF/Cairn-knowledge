@@ -12,8 +12,6 @@
 //!
 //! Vectors are little-endian float32, normalised, [`IndexModel::dims`] long; the same layout the
 //! sidecar sends as base64 (`sidecar/PROTOCOL.md`).
-//!
-//! Owned by the M4 search-core agent.
 
 use std::collections::HashMap;
 

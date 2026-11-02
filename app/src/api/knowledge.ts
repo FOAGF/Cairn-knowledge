@@ -153,7 +153,7 @@ export function useArchivePage() {
   return useMutation({ mutationFn: ({ id, archived }: { id: string; archived: boolean }) => noted(id, () => commands.archivePage(id, archived)) })
 }
 
-/** Used by the (simulated until M5) checks. */
+/** Used by the checks of the save pipeline. */
 export function useSetPageCheckStatus() {
   return useMutation({ mutationFn: ({ id, status }: { id: string; status: CheckStatus }) => commands.setPageCheckStatus(id, status) })
 }

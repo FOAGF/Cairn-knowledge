@@ -86,8 +86,8 @@ pub async fn suggest_category_key(state: State<'_, AppState>, name: String) -> A
         .await
 }
 
-/// Development builds only: inserts the prototype's sample categories that the not-yet-migrated
-/// mock screens refer to. Insert-if-missing; never changes existing categories.
+/// Development builds only: inserts the sample categories that the dev seed's tasks and pages
+/// refer to. Insert-if-missing; never changes existing categories.
 #[tauri::command]
 #[specta::specta]
 pub async fn dev_seed_categories(

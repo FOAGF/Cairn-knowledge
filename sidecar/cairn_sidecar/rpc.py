@@ -12,7 +12,6 @@ import sys
 import threading
 
 from . import __version__, errors
-from .errors import InvalidParams, SidecarError
 
 
 def log(*a, level="INFO"):
@@ -178,4 +177,4 @@ def common_methods(role):
     return {"ping": (ping, "inline"), "shutdown": (shutdown, "inline")}
 
 
-__all__ = ["Server", "Request", "common_methods", "log", "InvalidParams", "SidecarError"]
+__all__ = ["Server", "Request", "common_methods", "log"]

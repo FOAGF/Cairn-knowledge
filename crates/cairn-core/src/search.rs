@@ -1,5 +1,4 @@
 //! Keyword search over pages and tasks (FR-KN-UI-2, keyword part of FR-RAG-SR-1, NFR-I18N-4).
-//! Owned by the M3 search agent.
 //!
 //! The FTS5 table `search_index` (migration 0003) holds one row per page and per task.
 //! Text is "spaced": a separator is inserted between Han characters (CJK ideographs) so the

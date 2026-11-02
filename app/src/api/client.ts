@@ -4,7 +4,7 @@
 //   e.g. `categories.ts`) that call the generated `commands` from `bindings.ts`.
 // - Query keys start with the Rust `Entity` name, e.g. ['categories'] or ['categories', id].
 //   When Rust emits `DataChanged`, every query under that entity is fetched again.
-// - Zustand (src/store) keeps only UI state and the not-yet-migrated mock areas.
+// - Zustand (src/store) keeps only UI state.
 import { MutationCache, QueryClient } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { toast } from 'sonner'

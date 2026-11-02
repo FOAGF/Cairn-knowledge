@@ -10,7 +10,7 @@
 //! Text is cleaned for the model: page mentions `[Title](page:<id>)` become their title, images
 //! and attachment links are dropped, code blocks are kept as plain text.
 //!
-//! Owned by the M4 search-core agent. Pure functions: no database.
+//! Pure functions: no database.
 
 /// Aim for pieces about this long (in estimated tokens).
 pub const TARGET_TOKENS: usize = 350;

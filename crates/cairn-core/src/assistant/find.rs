@@ -8,8 +8,6 @@
 //!   passes are kept (`matching`, computed by the caller with the same rule), in that order;
 //!   without words, tasks come by due date (none last), then priority, then key, and pages by
 //!   title.
-//!
-//! Owned by the M6 answers agent.
 
 use chrono::NaiveDate;
 use rusqlite::types::Value;

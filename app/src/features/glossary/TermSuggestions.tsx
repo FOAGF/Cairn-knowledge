@@ -2,9 +2,6 @@
 // review step. *Add* opens a pre-filled entry (global by default, FR-KN-GL-2); *Ignore* remembers the
 // term for the category. Nothing is added without the user. The terms come already filtered by Rust
 // (`checks::filter_terms`).
-//
-// M5 contract: the props are final. The checks agent owns this file and may refine its look; the
-// chat agent only uses it.
 import { BookA, ChevronRight } from 'lucide-react'
 import { useState } from 'react'
 import { commands, type TermSuggestion } from '@/api/bindings'

@@ -8,7 +8,6 @@ use std::time::Duration;
 use cairn_core::DataPaths;
 use cairn_core::assistant::formats::PiecePart;
 use cairn_core::assistant::parts::{LinkKind, Proposal};
-use cairn_core::assistant::plan::{PlanFilters, RequestKind};
 use cairn_core::conversations::{self, ChatRole, NewConversation, NewMessage};
 use cairn_core::knowledge::{NewPage, PagePatch};
 use cairn_core::categories::{NewCategory, CategoryColor};
@@ -186,14 +185,6 @@ impl Env {
             upload: None,
             chat_file_id: None,
         };
-        let plan = Plan {
-            kind: RequestKind::Change,
-            search: String::new(),
-            filters: PlanFilters::default(),
-            refs: vec![],
-            outside_scope: vec![],
-            intro: String::new(),
-        };
         let mut candidates: Vec<ItemRef> = self.tasks.iter().map(|t| ItemRef::task(&t.id)).collect();
         candidates.push(ItemRef::page(&self.page.id));
         let input = ActionInput {
@@ -205,7 +196,7 @@ impl Env {
             glossary: String::new(),
         };
         let mut progress = Progress::new(&assistant);
-        let done = run(&self.ctx(), &job, &plan, input, &mut progress).await;
+        let done = run(&self.ctx(), &job, input, &mut progress).await;
         let message = self.message(&assistant).await;
         Ran { done, message, progress }
     }

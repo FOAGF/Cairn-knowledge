@@ -308,12 +308,10 @@ pub struct ChatJobStarted {
 pub async fn start_file_draft(
     app: AppHandle,
     state: State<'_, AppState>,
-    sidecars: State<'_, Sidecars>,
     jobs: State<'_, Arc<Jobs>>,
     uploads: State<'_, Uploads>,
     input: FileDraftInput,
 ) -> ApiResult<ChatJobStarted> {
-    let _ = &sidecars;
     let (job, started) = prepare_file_draft(&state, &uploads, input).await?;
     emit_changed(&app, &[Entity::Conversations]);
     spawn_job(
@@ -402,11 +400,9 @@ async fn prepare_file_draft(
 pub async fn revise_draft(
     app: AppHandle,
     state: State<'_, AppState>,
-    sidecars: State<'_, Sidecars>,
     jobs: State<'_, Arc<Jobs>>,
     input: ReviseInput,
 ) -> ApiResult<ChatJobStarted> {
-    let _ = &sidecars;
     let (job, started) = prepare_revise(&state, input).await?;
     emit_changed(&app, &[Entity::Conversations]);
     spawn_job(
@@ -489,12 +485,10 @@ async fn prepare_revise(
 pub async fn retry_chat_job(
     app: AppHandle,
     state: State<'_, AppState>,
-    sidecars: State<'_, Sidecars>,
     jobs: State<'_, Arc<Jobs>>,
     message_id: String,
     model_id: Option<String>,
 ) -> ApiResult<()> {
-    let _ = &sidecars;
     let id = message_id.clone();
     let (job, assistant) = state
         .with_db(move |db| plan_retry(db, &id, model_id))

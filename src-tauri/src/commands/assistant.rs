@@ -23,8 +23,6 @@
 //! The first step is on the message before any model call, and one step stays active until the
 //! answer, the find list or the proposal is stored on it, so the UI never sees a finished-looking
 //! message in between.
-//!
-//! Owned by the M6 answers agent (the action branch by the actions agent).
 
 use std::sync::Arc;
 
@@ -129,12 +127,10 @@ pub(crate) struct AskJob {
 pub async fn send_message(
     app: AppHandle,
     state: State<'_, AppState>,
-    sidecars: State<'_, Sidecars>,
     jobs: State<'_, Arc<Jobs>>,
     uploads: State<'_, Uploads>,
     input: SendInput,
 ) -> ApiResult<ChatJobStarted> {
-    let _ = &sidecars;
     let (job, started) = prepare_send(&state, &uploads, input).await?;
     emit_changed(&app, &[Entity::Conversations]);
     spawn_job(
@@ -455,7 +451,7 @@ pub async fn widen_history(
     conversation_id: String,
     model_id: Option<String>,
 ) -> ApiResult<HistoryUsage> {
-    let (used, b, _) = history_numbers(&state, &sidecars, &conversation_id, model_id.clone()).await?;
+    let (_, b, _) = history_numbers(&state, &sidecars, &conversation_id, model_id.clone()).await?;
     let wider = history::widened(b.history, b.history_limit);
     if wider != b.configured {
         let id = conversation_id.clone();
@@ -474,7 +470,6 @@ pub async fn widen_history(
         emit_changed(&app, &[Entity::Conversations]);
     }
     let (used_now, b, _) = history_numbers(&state, &sidecars, &conversation_id, model_id).await?;
-    let _ = used;
     Ok(history::usage(used_now, b.history, b.history_limit))
 }
 
@@ -619,7 +614,7 @@ pub(crate) async fn ask_job(
         RequestKind::Create | RequestKind::Change => {
             let gathered = run.gather(&planned, file_ref, progress).await?;
             let input = run.action_input(&planned, &gathered);
-            super::actions::run(ctx, job, &planned.plan, input, progress).await
+            super::actions::run(ctx, job, input, progress).await
         }
         RequestKind::Question | RequestKind::FileQuestion | RequestKind::General => {
             run.answer(&planned, file_ref, progress).await

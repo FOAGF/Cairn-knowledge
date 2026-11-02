@@ -40,12 +40,9 @@ pub struct TaskDraftInput {
 #[specta::specta]
 pub async fn draft_from_task(
     app: AppHandle,
-    state: State<'_, AppState>,
-    sidecars: State<'_, Sidecars>,
     jobs: State<'_, Arc<Jobs>>,
     input: TaskDraftInput,
 ) -> ApiResult<DraftText> {
-    let _ = (state, sidecars);
     let stream_id = input.stream_id.clone();
     jobs.run(stream_id, async move {
         let state = app.state::<AppState>();
@@ -113,12 +110,9 @@ pub struct SuggestMergeInput {
 #[specta::specta]
 pub async fn suggest_merge(
     app: AppHandle,
-    state: State<'_, AppState>,
-    sidecars: State<'_, Sidecars>,
     jobs: State<'_, Arc<Jobs>>,
     input: SuggestMergeInput,
 ) -> ApiResult<DraftText> {
-    let _ = (state, sidecars);
     let stream_id = input.stream_id.clone();
     jobs.run(stream_id, async move {
         let state = app.state::<AppState>();
@@ -229,13 +223,10 @@ pub struct GroupSuggestions {
 #[specta::specta]
 pub async fn suggest_groups(
     app: AppHandle,
-    state: State<'_, AppState>,
-    sidecars: State<'_, Sidecars>,
     jobs: State<'_, Arc<Jobs>>,
     category_id: String,
     job_id: Option<String>,
 ) -> ApiResult<GroupSuggestions> {
-    let _ = (state, sidecars);
     jobs.run(job_id, async move {
         let state = app.state::<AppState>();
         let sidecars = app.state::<Sidecars>();

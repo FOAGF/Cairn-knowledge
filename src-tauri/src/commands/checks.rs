@@ -115,8 +115,6 @@ pub(crate) async fn run_check(app: AppHandle, input: CheckInput) -> ApiResult<Ch
 #[specta::specta]
 pub async fn check_page(
     app: AppHandle,
-    _state: State<'_, AppState>,
-    _sidecars: State<'_, Sidecars>,
     jobs: State<'_, Arc<Jobs>>,
     input: CheckInput,
 ) -> ApiResult<CheckReport> {
@@ -288,7 +286,6 @@ pub struct KeepTopicInput {
 pub async fn keep_one_topic(
     app: AppHandle,
     state: State<'_, AppState>,
-    _sidecars: State<'_, Sidecars>,
     jobs: State<'_, Arc<Jobs>>,
     input: KeepTopicInput,
 ) -> ApiResult<DraftText> {

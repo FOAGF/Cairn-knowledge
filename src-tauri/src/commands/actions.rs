@@ -15,8 +15,6 @@
 //! Commands: tick / untick a row, *Confirm* (applies the ticked pending rows with
 //! `actions::apply`, one transaction each, and records each row's result), *Reject*.
 //! *Edit…* is UI only: it opens the normal task form (or the page) filled in from the row.
-//!
-//! Owned by the M6 actions agent.
 
 use serde_json::{Map, Value};
 use tauri::{AppHandle, State};
@@ -25,7 +23,7 @@ use cairn_core::assistant::actions::{self, PageEditRequest};
 use cairn_core::assistant::formats::{self, ItemInfo, CategoryLine, SourcePiece};
 use cairn_core::assistant::items::{self, ItemRef};
 use cairn_core::assistant::parts::{Proposal, ProposalRow, ProposedChange, RowState};
-use cairn_core::assistant::plan::{Plan, PlanCategory};
+use cairn_core::assistant::plan::PlanCategory;
 use cairn_core::assistant::retrieve;
 use cairn_core::checks::{self, RawTerm};
 use cairn_core::conversations::{
@@ -137,11 +135,9 @@ fn options(opts_stream: Option<&str>, timeout_s: u32, effort: &Option<String>) -
 pub(crate) async fn run(
     ctx: &Ctx<'_>,
     job: &AskJob,
-    plan: &Plan,
     input: ActionInput,
     progress: &mut Progress,
 ) -> Result<Done, JobError> {
-    let _ = plan;
     let resolved = llm::resolve(ctx.state, ModelRole::Conversation, job.model_id.clone())
         .await
         .map_err(plain)?;

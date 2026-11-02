@@ -128,15 +128,7 @@ pub(crate) struct ArchiveInfo {
 
 /// Reads an archive's manifest (leniently, like [`peek_manifest`]).
 pub(crate) fn archive_info(archive: &Path) -> Result<ArchiveInfo> {
-    let mut zip = ZipArchive::new(BufReader::new(File::open(archive)?))
-        .map_err(|_| not_an_export("it is not a zip file"))?;
-    let mut text = String::new();
-    zip.by_name(MANIFEST)
-        .map_err(|_| not_an_export("manifest.json is missing"))?
-        .read_to_string(&mut text)
-        .map_err(|_| not_an_export("manifest.json cannot be read"))?;
-    let m: Manifest =
-        serde_json::from_str(&text).map_err(|_| not_an_export("manifest.json is damaged"))?;
+    let m = manifest_of(&mut open_zip(archive)?)?;
     Ok(ArchiveInfo {
         pages: m.tables.get("pages").copied().unwrap_or(0),
         tasks: m.tables.get("tasks").copied().unwrap_or(0),
@@ -444,11 +436,7 @@ pub(crate) fn export_from_conn(
     dest: &Path,
     exported_at: &str,
 ) -> Result<ExportSummary> {
-    let part = {
-        let mut n = dest.as_os_str().to_owned();
-        n.push(".part");
-        PathBuf::from(n)
-    };
+    let part = crate::db::with_suffix(dest, ".part");
     let result = write_archive(conn, attachments, &part, exported_at, false);
     finish_export(result, &part, dest)
 }
@@ -456,11 +444,7 @@ pub(crate) fn export_from_conn(
 /// D-72: a knowledge-only switch backup of `db` at `dest`: the knowledge tables and the images
 /// their text (page bodies and history) uses, with `knowledgeOnly` in the manifest.
 pub(crate) fn export_knowledge(db: &Db, dest: &Path) -> Result<ExportSummary> {
-    let part = {
-        let mut n = dest.as_os_str().to_owned();
-        n.push(".part");
-        PathBuf::from(n)
-    };
+    let part = crate::db::with_suffix(dest, ".part");
     let result = write_archive(
         db.conn(),
         &db.paths().attachments_dir(),
@@ -493,15 +477,7 @@ fn finish_export(result: Result<Manifest>, part: &Path, dest: &Path) -> Result<E
 /// What a backup list needs from an archive's manifest: export time (UTC) and app version.
 /// Lenient: it does not require a format or schema this Cairn understands.
 pub(crate) fn peek_manifest(archive: &Path) -> Result<(String, String)> {
-    let mut zip = ZipArchive::new(BufReader::new(File::open(archive)?))
-        .map_err(|_| not_an_export("it is not a zip file"))?;
-    let mut text = String::new();
-    zip.by_name(MANIFEST)
-        .map_err(|_| not_an_export("manifest.json is missing"))?
-        .read_to_string(&mut text)
-        .map_err(|_| not_an_export("manifest.json cannot be read"))?;
-    let m: Manifest =
-        serde_json::from_str(&text).map_err(|_| not_an_export("manifest.json is damaged"))?;
+    let m = manifest_of(&mut open_zip(archive)?)?;
     Ok((m.exported_at, m.app_version))
 }
 
@@ -580,14 +556,24 @@ fn not_an_export(why: &str) -> CoreError {
     CoreError::Invalid(format!("This file is not a valid Cairn export ({why})."))
 }
 
-fn read_manifest(zip: &mut ZipArchive<BufReader<File>>, latest: u32) -> Result<Manifest> {
+fn open_zip(archive: &Path) -> Result<ZipArchive<BufReader<File>>> {
+    ZipArchive::new(BufReader::new(File::open(archive)?))
+        .map_err(|_| not_an_export("it is not a zip file"))
+}
+
+/// The archive's manifest, whatever its format or schema version.
+fn manifest_of(zip: &mut ZipArchive<BufReader<File>>) -> Result<Manifest> {
     let mut text = String::new();
     zip.by_name(MANIFEST)
         .map_err(|_| not_an_export("manifest.json is missing"))?
         .read_to_string(&mut text)
         .map_err(|_| not_an_export("manifest.json cannot be read"))?;
-    let manifest: Manifest =
-        serde_json::from_str(&text).map_err(|_| not_an_export("manifest.json is damaged"))?;
+    serde_json::from_str(&text).map_err(|_| not_an_export("manifest.json is damaged"))
+}
+
+/// The manifest of an archive this Cairn can import.
+fn read_manifest(zip: &mut ZipArchive<BufReader<File>>, latest: u32) -> Result<Manifest> {
+    let manifest = manifest_of(zip)?;
     if manifest.export_format != EXPORT_FORMAT_VERSION {
         return Err(CoreError::Invalid(
             if manifest.export_format > EXPORT_FORMAT_VERSION {
@@ -847,8 +833,7 @@ fn keep_tasks_only(db_file: &Path, current: &Connection) -> Result<()> {
 
 fn import_with(db: &mut Db, archive: &Path, how: &ImportAs) -> Result<ImportSummary> {
     let latest = latest_version();
-    let mut zip = ZipArchive::new(BufReader::new(File::open(archive)?))
-        .map_err(|_| not_an_export("it is not a zip file"))?;
+    let mut zip = open_zip(archive)?;
     let manifest = read_manifest(&mut zip, latest)?;
     if manifest.knowledge_only {
         return Err(CoreError::Invalid(SWITCH_BACKUP_REFUSED.into()));
@@ -868,30 +853,29 @@ fn import_with(db: &mut Db, archive: &Path, how: &ImportAs) -> Result<ImportSumm
     let backup_folder = crate::settings::get(db.conn())?.backup_folder;
 
     let stamp = chrono::Utc::now().format("%Y%m%d-%H%M%S-%3f");
-    let staging = db.paths().root.join(format!("import-staging-{stamp}"));
-    let result = (|| -> Result<PathBuf> {
-        build_staging(&mut zip, &manifest, &staging, &migrations(), latest)?;
-        match how {
-            ImportAs::Whole => {}
-            ImportAs::TasksOnly => keep_tasks_only(&staging.join("cairn.sqlite"), db.conn())?,
-            ImportAs::WithRoot(root) => {
-                let conn = Connection::open(staging.join("cairn.sqlite"))?;
-                if manifest.knowledge_mode == Some(KnowledgeMode::External) {
-                    crate::settings::set_knowledge_mode(&conn, KnowledgeMode::External, Some(root))?;
-                }
-                conn.close().map_err(|(_, e)| e)?;
+    // Removed when dropped, also on any error below.
+    let staged = Staged {
+        dir: db.paths().root.join(format!("import-staging-{stamp}")),
+    };
+    build_staging(&mut zip, &manifest, &staged.dir, &migrations(), latest)?;
+    match how {
+        ImportAs::Whole => {}
+        ImportAs::TasksOnly => keep_tasks_only(&staged.db_file(), db.conn())?,
+        ImportAs::WithRoot(root) => {
+            let conn = Connection::open(staged.db_file())?;
+            if manifest.knowledge_mode == Some(KnowledgeMode::External) {
+                crate::settings::set_knowledge_mode(&conn, KnowledgeMode::External, Some(root))?;
             }
+            conn.close().map_err(|(_, e)| e)?;
         }
-        let backup = db
-            .paths()
-            .backups_dir()
-            .join(format!("pre-import-{stamp}.zip"));
-        export_to(db, &backup)?;
-        db.replace_from(&staging.join("cairn.sqlite"), &staging.join("attachments"))?;
-        Ok(backup)
-    })();
-    let _ = std::fs::remove_dir_all(&staging);
-    let backup = result?;
+    }
+    let backup = db
+        .paths()
+        .backups_dir()
+        .join(format!("pre-import-{stamp}.zip"));
+    export_to(db, &backup)?;
+    db.replace_from(&staged.db_file(), &staged.attachments())?;
+    drop(staged);
 
     // Every other setting comes from the file; the backup folder stays this computer's.
     if crate::settings::get(db.conn())?.backup_folder != backup_folder {
@@ -944,8 +928,9 @@ fn import_with(db: &mut Db, archive: &Path, how: &ImportAs) -> Result<ImportSumm
     })
 }
 
-/// An archive built into a staging folder in the data folder (at the current schema), for reading
-/// parts of it (switching modes, D-72). The folder is removed when this is dropped.
+/// A database built in a staging folder in the data folder: an archive at the current schema (an
+/// import, or reading parts of a switch backup, D-72) or an empty one (a reset). The folder is
+/// removed when this is dropped.
 pub(crate) struct Staged {
     pub dir: PathBuf,
 }
@@ -967,8 +952,7 @@ impl Drop for Staged {
 
 /// Builds `archive` into a staging folder of the data folder, as an import does before its swap.
 pub(crate) fn stage(db: &Db, archive: &Path) -> Result<Staged> {
-    let mut zip = ZipArchive::new(BufReader::new(File::open(archive)?))
-        .map_err(|_| not_an_export("it is not a zip file"))?;
+    let mut zip = open_zip(archive)?;
     let latest = latest_version();
     let manifest = read_manifest(&mut zip, latest)?;
     let stamp = chrono::Utc::now().format("%Y%m%d-%H%M%S-%3f");
@@ -985,16 +969,12 @@ pub(crate) fn stage(db: &Db, archive: &Path) -> Result<Staged> {
 /// mode's, so the new database is internal (D-72).
 pub fn reset_to_empty(db: &mut Db) -> Result<()> {
     let stamp = chrono::Utc::now().format("%Y%m%d-%H%M%S-%3f");
-    let staging = db
-        .paths()
-        .root
-        .join(format!("import-staging-reset-{stamp}"));
-    let result = (|| -> Result<()> {
-        drop(Db::open_at(&staging)?);
-        db.replace_from(&staging.join("cairn.sqlite"), &staging.join("attachments"))
-    })();
-    let _ = std::fs::remove_dir_all(&staging);
-    result?;
+    let staged = Staged {
+        dir: db.paths().root.join(format!("import-staging-reset-{stamp}")),
+    };
+    drop(Db::open_at(&staged.dir)?);
+    db.replace_from(&staged.db_file(), &staged.attachments())?;
+    drop(staged);
     crate::settings::set_knowledge_mode(db.conn(), KnowledgeMode::Internal, None)?;
     db.tx(|tx| crate::hooks::rebuild_all(tx))
 }

@@ -27,10 +27,9 @@ use std::collections::HashSet;
 
 use chrono::{DateTime, Local, NaiveDate};
 use rusqlite::{Connection, OptionalExtension, Row, params};
-use serde::{Serialize, de::DeserializeOwned};
 
 use crate::bulk::BulkResult;
-use crate::util::{new_id, now_iso};
+use crate::util::{enum_str, new_id, now_iso, parse_enum};
 use crate::{CoreError, Db, Result, categories};
 pub use model::*;
 
@@ -60,9 +59,7 @@ impl Stamp {
             .earliest()
             .unwrap();
         Stamp {
-            at: local
-                .with_timezone(&chrono::Utc)
-                .to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+            at: crate::util::iso(local.with_timezone(&chrono::Utc)),
             day,
         }
     }
@@ -80,19 +77,6 @@ pub(crate) fn date_str(d: NaiveDate) -> String {
 }
 
 // ---------------------------------------------------------------- row helpers
-
-pub(crate) fn enum_str<T: Serialize>(v: &T) -> String {
-    match serde_json::to_value(v) {
-        Ok(serde_json::Value::String(s)) => s,
-        _ => String::new(),
-    }
-}
-
-pub(crate) fn parse_enum<T: DeserializeOwned>(idx: usize, s: &str) -> rusqlite::Result<T> {
-    serde_json::from_value(serde_json::Value::String(s.to_string())).map_err(|e| {
-        rusqlite::Error::FromSqlConversionFailure(idx, rusqlite::types::Type::Text, Box::new(e))
-    })
-}
 
 /// Separator for `group_concat` of labels (never part of a label in practice).
 const LABEL_SEP: char = '\u{1f}';

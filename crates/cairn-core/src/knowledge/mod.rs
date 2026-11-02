@@ -36,7 +36,8 @@ use rusqlite::{Connection, OptionalExtension, Row, params, params_from_iter};
 
 use crate::bulk::BulkResult;
 use crate::tasks::history::log_activity;
-use crate::tasks::{ActivityKind, Stamp, date_str, enum_str, parse_enum};
+use crate::tasks::{ActivityKind, Stamp, date_str};
+use crate::util::{enum_str, parse_enum};
 use crate::util::{new_id, now_iso};
 use crate::{CoreError, Db, Result, attachments, hooks, categories, tasks};
 pub use folders::*;

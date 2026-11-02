@@ -42,7 +42,7 @@ use cairn_core::assistant::parts::{AnswerBasis, AnswerPart, FindPart, SourceKind
 use cairn_core::assistant::plan::{self, Plan, PlanFilters, PlanCategory, RequestKind};
 use cairn_core::assistant::references;
 use cairn_core::assistant::retrieve::{self, RelevanceRule, Retrieval, Retrieved};
-use cairn_core::checks::{self, RawTerm};
+use cairn_core::checks;
 use cairn_core::chunking::estimate_tokens;
 use cairn_core::conversations::{
     self, ChatAttachment, ChatMessage, ChatRole, Conversation, ConversationPatch, FileKind,
@@ -1307,21 +1307,7 @@ impl<'a> Run<'a> {
                 return;
             }
         };
-        let raw: Vec<RawTerm> = reply
-            .get("terms")
-            .and_then(Value::as_array)
-            .into_iter()
-            .flatten()
-            .filter_map(Value::as_object)
-            .filter_map(|o| {
-                let text = |key: &str| o.get(key).and_then(Value::as_str).map(str::to_string);
-                Some(RawTerm {
-                    term: text("term")?,
-                    meaning: text("meaning").unwrap_or_default(),
-                    confidence: text("confidence").unwrap_or_default(),
-                })
-            })
-            .collect();
+        let raw = checks::raw_terms(reply.get("terms"));
         let (pid, doc) = (category_id.clone(), source);
         let filtered = self
             .ctx

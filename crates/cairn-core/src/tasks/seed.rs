@@ -3,21 +3,12 @@
 use rusqlite::{Connection, params};
 
 use super::*;
+use crate::util::has_id;
 
-fn exists(conn: &Connection, table: &str, id: &str) -> Result<bool> {
-    Ok(conn
-        .query_row(
-            &format!("SELECT 1 FROM {table} WHERE id = ?1"),
-            [id],
-            |_| Ok(()),
-        )
-        .optional()?
-        .is_some())
-}
 
 pub(super) fn seed_if_missing(conn: &Connection, seed: TaskSeed) -> Result<()> {
     for t in &seed.tasks {
-        if !exists(conn, "categories", &t.category_id)? {
+        if !has_id(conn, "categories", &t.category_id)? {
             continue;
         }
         let number: i64 = t
@@ -56,7 +47,7 @@ pub(super) fn seed_if_missing(conn: &Connection, seed: TaskSeed) -> Result<()> {
         }
     }
     for l in &seed.links {
-        if exists(conn, "tasks", &l.from_task_id)? && exists(conn, "tasks", &l.to_task_id)? {
+        if has_id(conn, "tasks", &l.from_task_id)? && has_id(conn, "tasks", &l.to_task_id)? {
             conn.execute(
                 "INSERT OR IGNORE INTO task_links (id, type, from_task_id, to_task_id, created_at)
                  VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -71,7 +62,7 @@ pub(super) fn seed_if_missing(conn: &Connection, seed: TaskSeed) -> Result<()> {
         }
     }
     for c in &seed.comments {
-        if exists(conn, "tasks", &c.task_id)? {
+        if has_id(conn, "tasks", &c.task_id)? {
             conn.execute(
                 "INSERT OR IGNORE INTO task_comments (id, task_id, text, created_at, updated_at)
                  VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -80,7 +71,7 @@ pub(super) fn seed_if_missing(conn: &Connection, seed: TaskSeed) -> Result<()> {
         }
     }
     for v in &seed.history {
-        if exists(conn, "tasks", &v.task_id)? {
+        if has_id(conn, "tasks", &v.task_id)? {
             conn.execute(
                 "INSERT OR IGNORE INTO task_versions (task_id, day, snapshot) VALUES (?1, ?2, ?3)",
                 params![v.task_id, v.date, serde_json::to_string(&v.snapshot)?],

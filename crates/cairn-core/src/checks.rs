@@ -100,21 +100,7 @@ pub fn read_check(reply: &Map<String, Value>, groups: &[Group], title: &str) -> 
     }
     tags.truncate(MAX_TAGS);
 
-    let raw_terms = reply
-        .get("terms")
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .filter_map(Value::as_object)
-        .filter_map(|o| {
-            let text = |key: &str| o.get(key).and_then(Value::as_str).map(str::to_string);
-            Some(RawTerm {
-                term: text("term")?,
-                meaning: text("meaning").unwrap_or_default(),
-                confidence: text("confidence").unwrap_or_default(),
-            })
-        })
-        .collect();
+    let raw_terms = raw_terms(reply.get("terms"));
 
     let report = CheckReport {
         topics,
@@ -124,6 +110,26 @@ pub fn read_check(reply: &Map<String, Value>, groups: &[Group], title: &str) -> 
         terms: Vec::new(),
     };
     (report, raw_terms)
+}
+
+/// A reply's `terms` list (`check`, `ask-action`, `doc-terms`): entries without a `term`, or with
+/// a blank one, are skipped; [`filter_terms`] trims and judges the rest.
+pub fn raw_terms(value: Option<&Value>) -> Vec<RawTerm> {
+    value
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_object)
+        .filter_map(|o| {
+            let text = |key: &str| o.get(key).and_then(Value::as_str).map(str::to_string);
+            let term = text("term").filter(|t| !t.trim().is_empty())?;
+            Some(RawTerm {
+                term,
+                meaning: text("meaning").unwrap_or_default(),
+                confidence: text("confidence").unwrap_or_default(),
+            })
+        })
+        .collect()
 }
 
 /// The `group` field: an object `{name, existing}` (a bare string is read the same way). A name

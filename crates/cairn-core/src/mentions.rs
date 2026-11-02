@@ -8,7 +8,7 @@ use std::collections::BTreeSet;
 use rusqlite::{Connection, OptionalExtension, params};
 
 use crate::knowledge::{Backlink, MentionSource, MentionTarget};
-use crate::tasks::enum_str;
+use crate::util::enum_str;
 use crate::{CoreError, Result, tasks};
 
 // ---------------------------------------------------------------- parsing

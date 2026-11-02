@@ -36,11 +36,12 @@
 use std::fmt::Display;
 use std::path::{Path, PathBuf};
 
-use chrono::{DateTime, Local, NaiveDateTime, SecondsFormat, TimeZone, Utc};
+use chrono::{DateTime, Local, NaiveDateTime, TimeZone, Utc};
 use rusqlite::{Connection, OpenFlags};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
+use crate::util::iso;
 use crate::{CoreError, DataPaths, Db, Result, export, settings};
 
 /// Why a backup was made.
@@ -146,10 +147,6 @@ fn parse_utc(text: &Option<String>) -> Option<DateTime<Utc>> {
         .map(|t| t.with_timezone(&Utc))
 }
 
-fn iso(t: DateTime<Utc>) -> String {
-    t.to_rfc3339_opts(SecondsFormat::Millis, true)
-}
-
 // ---------------------------------------------------------------------------------------------
 // Folder and status
 
@@ -209,11 +206,8 @@ pub fn check_folder(folder: &Path) -> Result<()> {
     }
     std::fs::create_dir_all(folder)
         .map_err(|e| CoreError::Invalid(format!("That folder cannot be created: {e}")))?;
-    let probe = folder.join(".cairn-write-test");
-    std::fs::write(&probe, b"")
-        .map_err(|e| CoreError::Invalid(format!("Cairn cannot write to that folder: {e}")))?;
-    let _ = std::fs::remove_file(probe);
-    Ok(())
+    crate::util::try_write(folder)
+        .map_err(|e| CoreError::Invalid(format!("Cairn cannot write to that folder: {e}")))
 }
 
 // ---------------------------------------------------------------------------------------------

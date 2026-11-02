@@ -432,8 +432,7 @@ pub(crate) fn stamp_of(meta: &std::fs::Metadata) -> Stamp {
 
 /// An ISO timestamp like `now_iso` for a file time.
 pub(crate) fn iso_of(t: SystemTime) -> String {
-    chrono::DateTime::<chrono::Utc>::from(t)
-        .to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
+    crate::util::iso(t.into())
 }
 
 /// Whether an error is Windows saying the file is in use (another program has it open).

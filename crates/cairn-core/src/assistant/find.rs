@@ -90,7 +90,7 @@ pub(crate) fn rows(conn: &Connection, scope: &[String], f: &PlanFilters) -> Resu
             args.extend(
                 f.statuses
                     .iter()
-                    .map(|s| Value::Text(super::formats::enum_id(s))),
+                    .map(|s| Value::Text(crate::util::enum_str(s))),
             );
         }
         if !f.priorities.is_empty() {
@@ -101,7 +101,7 @@ pub(crate) fn rows(conn: &Connection, scope: &[String], f: &PlanFilters) -> Resu
             args.extend(
                 f.priorities
                     .iter()
-                    .map(|p| Value::Text(super::formats::enum_id(p))),
+                    .map(|p| Value::Text(crate::util::enum_str(p))),
             );
         }
         if let Some(r) = &f.due {

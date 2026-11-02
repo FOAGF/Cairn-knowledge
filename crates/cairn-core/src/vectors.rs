@@ -16,7 +16,7 @@
 use std::collections::HashMap;
 
 use rusqlite::types::{Value, ValueRef};
-use rusqlite::{Connection, params, params_from_iter};
+use rusqlite::{Connection, OptionalExtension, params, params_from_iter};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use specta::Type;
@@ -139,20 +139,12 @@ fn kind_of(s: &str) -> SearchKind {
     }
 }
 
-fn not_found<T>(r: rusqlite::Result<T>) -> Result<Option<T>> {
-    match r {
-        Ok(v) => Ok(Some(v)),
-        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-        Err(e) => Err(e.into()),
-    }
-}
-
 fn meta(conn: &Connection, key: &str) -> Result<Option<String>> {
-    not_found(
-        conn.query_row("SELECT value FROM vector_meta WHERE key = ?1", [key], |r| {
+    Ok(conn
+        .query_row("SELECT value FROM vector_meta WHERE key = ?1", [key], |r| {
             r.get::<_, String>(0)
-        }),
-    )
+        })
+        .optional()?)
 }
 
 fn set_meta(conn: &Connection, key: &str, value: &str) -> Result<()> {
@@ -191,17 +183,19 @@ fn load_pieces(
 ) -> Result<Option<(String, String, Vec<Piece>)>> {
     match kind {
         SearchKind::Page => {
-            let row = not_found(conn.query_row(
-                "SELECT title, body, category_id FROM pages WHERE id = ?1",
-                [id],
-                |r| {
-                    Ok((
-                        r.get::<_, String>(0)?,
-                        r.get::<_, String>(1)?,
-                        r.get::<_, String>(2)?,
-                    ))
-                },
-            ))?;
+            let row = conn
+                .query_row(
+                    "SELECT title, body, category_id FROM pages WHERE id = ?1",
+                    [id],
+                    |r| {
+                        Ok((
+                            r.get::<_, String>(0)?,
+                            r.get::<_, String>(1)?,
+                            r.get::<_, String>(2)?,
+                        ))
+                    },
+                )
+                .optional()?;
             Ok(row.map(|(title, body, category)| {
                 let mut pieces = chunking::split_page(&body);
                 if pieces.is_empty() {
@@ -229,19 +223,21 @@ fn load_pieces(
             },
         )),
         SearchKind::Task => {
-            let row = not_found(conn.query_row(
-                "SELECT key, title, status, description, category_id FROM tasks WHERE id = ?1",
-                [id],
-                |r| {
-                    Ok((
-                        r.get::<_, String>(0)?,
-                        r.get::<_, String>(1)?,
-                        r.get::<_, String>(2)?,
-                        r.get::<_, String>(3)?,
-                        r.get::<_, String>(4)?,
-                    ))
-                },
-            ))?;
+            let row = conn
+                .query_row(
+                    "SELECT key, title, status, description, category_id FROM tasks WHERE id = ?1",
+                    [id],
+                    |r| {
+                        Ok((
+                            r.get::<_, String>(0)?,
+                            r.get::<_, String>(1)?,
+                            r.get::<_, String>(2)?,
+                            r.get::<_, String>(3)?,
+                            r.get::<_, String>(4)?,
+                        ))
+                    },
+                )
+                .optional()?;
             let Some((key, title, status, desc, category)) = row else {
                 return Ok(None);
             };

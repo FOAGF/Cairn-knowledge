@@ -1,16 +1,58 @@
 //! Small helpers shared by all modules.
 
-use chrono::{SecondsFormat, Utc};
+use chrono::{DateTime, SecondsFormat, Utc};
+use rusqlite::{Connection, OptionalExtension, Params};
+use serde::{Serialize, de::DeserializeOwned};
+
+use crate::Result;
 
 /// Current time as an ISO 8601 UTC timestamp with milliseconds, e.g. `2026-10-14T09:30:00.123Z`.
 /// Timestamps are stored and sent to the UI as strings in this format.
 pub fn now_iso() -> String {
-    Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true)
+    iso(Utc::now())
+}
+
+/// A time in the format of [`now_iso`].
+pub fn iso(t: DateTime<Utc>) -> String {
+    t.to_rfc3339_opts(SecondsFormat::Millis, true)
 }
 
 /// New random id. UUID v7 sorts by creation time, which keeps indexes tidy.
 pub fn new_id() -> String {
     uuid::Uuid::now_v7().to_string()
+}
+
+/// The string an enum value is stored and sent as: its serde name (`in_progress`, `wont_do`).
+pub(crate) fn enum_str<T: Serialize>(v: &T) -> String {
+    match serde_json::to_value(v) {
+        Ok(serde_json::Value::String(s)) => s,
+        _ => String::new(),
+    }
+}
+
+/// The enum value of a stored string, as a row-mapping error (column `idx`) when it isn't one.
+pub(crate) fn parse_enum<T: DeserializeOwned>(idx: usize, s: &str) -> rusqlite::Result<T> {
+    serde_json::from_value(serde_json::Value::String(s.to_string())).map_err(|e| {
+        rusqlite::Error::FromSqlConversionFailure(idx, rusqlite::types::Type::Text, Box::new(e))
+    })
+}
+
+/// Creates and removes a small file in `dir`, to find out whether Cairn can write there.
+pub(crate) fn try_write(dir: &std::path::Path) -> std::io::Result<()> {
+    let probe = dir.join(".cairn-write-test");
+    std::fs::write(&probe, b"")?;
+    let _ = std::fs::remove_file(probe);
+    Ok(())
+}
+
+/// Whether `sql` (a `SELECT 1 …`) finds a row.
+pub(crate) fn exists(conn: &Connection, sql: &str, args: impl Params) -> Result<bool> {
+    Ok(conn.query_row(sql, args, |_| Ok(())).optional()?.is_some())
+}
+
+/// Whether `table` has a row with this id. `table` is always a name from the code, never user text.
+pub(crate) fn has_id(conn: &Connection, table: &str, id: &str) -> Result<bool> {
+    exists(conn, &format!("SELECT 1 FROM {table} WHERE id = ?1"), [id])
 }
 
 /// A file name that is valid on Windows and Linux, for the name Cairn *suggests* in a *Save as*

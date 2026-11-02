@@ -42,6 +42,7 @@ use specta::Type;
 use super::external::{self, scan};
 use crate::export::{self, archive_info};
 use crate::settings::{self, KnowledgeMode};
+use crate::util::exists;
 use crate::{CoreError, Db, Result, attachments, hooks};
 
 /// Where knowledge lives now (Settings › Data's *Knowledge storage* card, the mode chooser).
@@ -100,10 +101,8 @@ pub fn check_root(db: &Db, root: &str) -> Result<String> {
             "The knowledge folder can't be Cairn's data folder, inside it, or around it. Choose another folder.".into(),
         ));
     }
-    let probe = path.join(".cairn-write-test");
-    std::fs::write(&probe, b"")
+    crate::util::try_write(path)
         .map_err(|e| CoreError::Invalid(format!("Cairn can't write to that folder: {e}")))?;
-    let _ = std::fs::remove_file(probe);
     Ok(recorded_root(root))
 }
 
@@ -407,10 +406,6 @@ fn with_attached<T>(db: &mut Db, staged: &export::Staged, f: impl FnOnce(&rusqli
     let out = db.tx(f);
     db.conn().execute("DETACH DATABASE sb", [])?;
     out
-}
-
-fn exists(conn: &Connection, sql: &str, args: impl rusqlite::Params) -> Result<bool> {
-    Ok(conn.query_row(sql, args, |_| Ok(())).optional()?.is_some())
 }
 
 /// A group of the attached switch backup.

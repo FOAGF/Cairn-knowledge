@@ -3,10 +3,10 @@
 //! reference the owner's prompt check used, so the app sends what was checked.
 
 use chrono::NaiveDate;
-use serde::Serialize;
 
 use crate::prompts::{LlmMessage, Role};
 use crate::tasks::{Priority, TaskStatus, TaskType};
+use crate::util::enum_str;
 
 /// `out_of_scope_note` with `{names}` to fill.
 const OUT_OF_SCOPE: &str = "Not searched, because outside this conversation's scope: {names}. Say so in the answer; the user can widen the search with \"Search all categories\".";
@@ -16,14 +16,6 @@ pub const PLAN_HISTORY_TURNS: usize = 6;
 pub const PLAN_HISTORY_CHARS: usize = 600;
 /// Where the start of a candidate's text is cut.
 pub const CANDIDATE_CHARS: usize = 600;
-
-/// The id the templates use for an enum value (`in_progress`, `wont_do`, `high`, `bug`).
-pub fn enum_id<T: Serialize>(value: &T) -> String {
-    match serde_json::to_value(value) {
-        Ok(serde_json::Value::String(s)) => s,
-        _ => String::new(),
-    }
-}
 
 /// `today`: "2026-10-15 (Thursday)", in the computer's local time zone.
 pub fn today_line(day: NaiveDate) -> String {
@@ -196,8 +188,8 @@ impl ItemInfo {
                 t.key,
                 t.title,
                 t.category,
-                enum_id(&t.status),
-                enum_id(&t.priority),
+                enum_str(&t.status),
+                enum_str(&t.priority),
                 t.due.as_deref().unwrap_or("none")
             ),
             ItemInfo::Page(p) => format!(
@@ -338,9 +330,9 @@ pub fn candidates_block(items: &[ItemInfo]) -> (String, Vec<(String, usize)>) {
                     t.key,
                     t.title,
                     t.category,
-                    enum_id(&t.status),
-                    enum_id(&t.priority),
-                    enum_id(&t.task_type),
+                    enum_str(&t.status),
+                    enum_str(&t.priority),
+                    enum_str(&t.task_type),
                     t.due.as_deref().unwrap_or("none"),
                     none(t.labels.join(", ")),
                     t.parent.as_deref().unwrap_or("none"),

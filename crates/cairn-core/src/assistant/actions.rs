@@ -19,7 +19,8 @@ use chrono::NaiveDate;
 use rusqlite::Connection;
 use serde_json::{Map, Value};
 
-use crate::assistant::formats::{ItemInfo, TaskInfo, enum_id};
+use crate::assistant::formats::{ItemInfo, TaskInfo};
+use crate::util::enum_str;
 use crate::assistant::parts::{LinkKind, LinkTo, ProposalRow, ProposedChange, RowState};
 use crate::assistant::plan::PlanCategory;
 use crate::checks::RawTerm;
@@ -129,22 +130,6 @@ fn same_set(a: &[String], b: &[String]) -> bool {
     norm(a) == norm(b)
 }
 
-fn raw_terms(v: Option<&Value>) -> Vec<RawTerm> {
-    v.and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .filter_map(Value::as_object)
-        .filter_map(|t| {
-            let term = text(t, "term");
-            (!term.is_empty()).then(|| RawTerm {
-                term,
-                meaning: text(t, "meaning"),
-                confidence: text(t, "confidence"),
-            })
-        })
-        .collect()
-}
-
 /// The valid links of a change: known labels, a kind that fits the target's type, never the task
 /// itself (`own` is the label of the task being changed).
 fn links_of(c: &Map<String, Value>, labels: &[(String, ItemInfo)], own: Option<&str>) -> Vec<LinkTo> {
@@ -248,7 +233,7 @@ pub fn read(
         match (op, found) {
             ("create_task", _) => {
                 let links = links_of(c, labels, None);
-                let terms = raw_terms(c.get("terms"));
+                let terms = crate::checks::raw_terms(c.get("terms"));
                 if !terms.is_empty() {
                     out.terms.push((out.changes.len(), terms));
                 }
@@ -471,7 +456,7 @@ pub fn apply(db: &mut Db, change: &ProposedChange) -> Result<(String, Option<Str
                     format!("Marked {key} as {}", status_phrase(*s))
                 }
                 (None, Some(p)) if !others && links.is_empty() => {
-                    format!("Set {key} to {} priority", enum_id(p))
+                    format!("Set {key} to {} priority", enum_str(p))
                 }
                 _ => format!("Updated {key}"),
             };
@@ -540,13 +525,13 @@ fn describe(conn: &Connection, change: &ProposedChange) -> String {
         } => {
             let mut parts: Vec<String> = Vec::new();
             if let Some(s) = status {
-                parts.push(format!("status {}", enum_id(s)));
+                parts.push(format!("status {}", enum_str(s)));
             }
             if let Some(p) = priority {
-                parts.push(format!("priority {}", enum_id(p)));
+                parts.push(format!("priority {}", enum_str(p)));
             }
             if let Some(y) = task_type {
-                parts.push(format!("type {}", enum_id(y)));
+                parts.push(format!("type {}", enum_str(y)));
             }
             if let Some(d) = due {
                 parts.push(format!("due {d}"));

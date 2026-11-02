@@ -470,10 +470,8 @@ pub fn set_data_folder(config_path: &Path, folder: &str) -> Result<()> {
     }
     std::fs::create_dir_all(path)
         .map_err(|e| CoreError::Invalid(format!("That folder cannot be created: {e}")))?;
-    let probe = path.join(".cairn-write-test");
-    std::fs::write(&probe, b"")
+    crate::util::try_write(path)
         .map_err(|e| CoreError::Invalid(format!("That folder is not writable: {e}")))?;
-    let _ = std::fs::remove_file(probe);
     let config = AppConfig {
         data_folder: Some(path.to_path_buf()),
     };

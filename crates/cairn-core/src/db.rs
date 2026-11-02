@@ -29,8 +29,11 @@ impl Db {
         }
         migrate(&mut conn)?;
         if source_version < latest_version() {
-            // A schema upgrade may add derived indexes (search, mentions) for existing data.
-            crate::hooks::rebuild_all(&conn)?;
+            // A schema upgrade may add derived indexes (search, mentions) for existing data. One
+            // transaction, so a failure leaves the old indexes rather than half-emptied ones.
+            let tx = conn.transaction()?;
+            crate::hooks::rebuild_all(&tx)?;
+            tx.commit()?;
         }
         // D-72: a database from before this run that records no knowledge mode is internal (an
         // older version made it); one made just now leaves it unset, so the UI asks.

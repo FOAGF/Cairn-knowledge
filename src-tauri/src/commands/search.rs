@@ -265,7 +265,7 @@ pub async fn get_index_progress(
 #[specta::specta]
 pub async fn rebuild_search_index(app: AppHandle, state: State<'_, AppState>) -> ApiResult<()> {
     state
-        .with_db(move |db| cairn_core::hooks::rebuild_all(db.conn()))
+        .with_db(move |db| db.tx(|tx| cairn_core::hooks::rebuild_all(tx)))
         .await?;
     emit_changed(&app, &[Entity::Search, Entity::Mentions]);
     // The pieces were re-cut: the indexer embeds only those that changed (FR-RAG-IX-2).

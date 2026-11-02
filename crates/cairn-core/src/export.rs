@@ -919,7 +919,7 @@ fn import_with(
 
     // FR-DATA-7: derived data is rebuilt after an import: the keyword search index (not exported)
     // the mention index and the vector pieces (all new, waiting for the indexer).
-    crate::hooks::rebuild_all(db.conn())?;
+    db.tx(|tx| crate::hooks::rebuild_all(tx))?;
 
     tracing::info!(from_schema = manifest.schema_version, "import finished");
     // A tasks-only import reports what it took from the archive: its task tables and the images
@@ -1001,7 +1001,7 @@ pub fn reset_to_empty(db: &mut Db) -> Result<()> {
     let _ = std::fs::remove_dir_all(&staging);
     result?;
     crate::settings::set_knowledge_mode(db.conn(), KnowledgeMode::Internal, None)?;
-    crate::hooks::rebuild_all(db.conn())
+    db.tx(|tx| crate::hooks::rebuild_all(tx))
 }
 
 #[cfg(test)]

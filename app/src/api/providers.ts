@@ -67,13 +67,6 @@ export function useModelList(): ModelConfig[] {
   return useModels().data ?? EMPTY_MODELS
 }
 
-/** Models of providers that are switched on (FR-LLM-PV-6): what the pickers offer. */
-export function useUsableModels(): ModelConfig[] {
-  const providers = useProviderList()
-  const models = useModelList()
-  return usableModels(providers, models)
-}
-
 export function usableModels(providers: Provider[], models: ModelConfig[]): ModelConfig[] {
   const on = new Set(providers.filter((p) => p.enabled).map((p) => p.id))
   return models.filter((m) => on.has(m.providerId))

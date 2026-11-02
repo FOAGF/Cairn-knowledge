@@ -70,20 +70,6 @@ export function effortSummary(model: ModelConfig): string {
   return (model.effort.levels ?? ['low', 'medium', 'high']).join(' · ')
 }
 
-/** Runs a fake progress bar from 0 to 100, then calls `done`. */
-export function runFakeProgress(set: (n: number) => void, done: () => void, ms = 2200) {
-  let n = 0
-  const timer = setInterval(() => {
-    n = Math.min(100, n + 4 + Math.random() * 8)
-    set(Math.round(n))
-    if (n >= 100) {
-      clearInterval(timer)
-      done()
-    }
-  }, ms / 20)
-  return () => clearInterval(timer)
-}
-
 /** A whole number between `min` and `max`, saved as soon as it is valid. */
 export function NumberSetting({ value, min, max, onSave, label }: { value: number; min: number; max: number; onSave: (n: number) => void; label: string }) {
   const [text, setText] = useState<string | null>(null)

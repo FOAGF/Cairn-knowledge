@@ -149,8 +149,3 @@ export function AppShell() {
     </TooltipProvider>
   )
 }
-
-/** Standard page width for feature pages that need to stay readable. */
-export function PageContainer({ children }: { children: React.ReactNode }) {
-  return <div className="mx-auto max-w-[1280px]">{children}</div>
-}

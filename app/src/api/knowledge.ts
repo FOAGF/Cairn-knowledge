@@ -17,7 +17,6 @@ import {
   type MarkdownExportMode,
   type MentionTarget,
   type NewGroup,
-  type NewPage,
   type Page,
   type PageFilter,
   type PagePatch,
@@ -108,10 +107,6 @@ export function usePagesByIds(ids: string[]) {
 
 export function usePageTags(): string[] {
   return useQuery({ queryKey: ['knowledge', 'tags'], queryFn: () => commands.listPageTags() }).data ?? EMPTY_TAGS
-}
-
-export function useCreatePage() {
-  return useMutation({ mutationFn: (input: NewPage) => commands.createPage(input) })
 }
 
 // FR-KN-EXT-11: the page editor sends the file's hash from when editing started, and a different

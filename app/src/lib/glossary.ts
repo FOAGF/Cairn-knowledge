@@ -85,7 +85,8 @@ export interface MatchCases {
 
 /**
  * Runs the shared cases (`glossary-cases.json`, also run by the Rust tests). Returns the failures; empty = all good.
- * No test framework in the repo; run it with node, see docs/development.md.
+ * No test framework in the repo; Node 24 runs it as is, from the repo root:
+ * `node -e "import('./app/src/lib/glossary.ts').then(async (g) => console.log(g.selfCheckGlossaryRules((await import('./app/src/lib/glossary-cases.json', { with: { type: 'json' } })).default)))"`
  */
 export function selfCheckGlossaryRules(data: MatchCases): string[] {
   return data.cases.flatMap((c, i) => {

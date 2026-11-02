@@ -16,6 +16,8 @@ import { useT } from '@/i18n'
 import type { StepState } from './usePipeline'
 import type { DuplicateMatch } from './useSimilar'
 import { useCategoryList } from '@/api/categories'
+import { TINT_CLASS } from '@/lib/labels'
+import type { TintColor } from '@/lib/types'
 
 // ------------------------------------------------------------------- Stepper
 
@@ -229,12 +231,12 @@ export function CheckCard({
   children,
 }: {
   icon: React.ComponentType<{ className?: string }>
-  tint: 'blue' | 'green' | 'purple' | 'amber' | 'rose' | 'slate'
+  tint: TintColor
   title: string
   status?: React.ReactNode
   children?: React.ReactNode
 }) {
-  const bg = { blue: 'bg-tint-blue text-tint-blue-fg', green: 'bg-tint-green text-tint-green-fg', purple: 'bg-tint-purple text-tint-purple-fg', amber: 'bg-tint-amber text-tint-amber-fg', rose: 'bg-tint-rose text-tint-rose-fg', slate: 'bg-tint-slate text-tint-slate-fg' }[tint]
+  const bg = TINT_CLASS[tint]
   return (
     <section className="rounded-2xl border bg-card p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
       <div className="flex items-center gap-3">

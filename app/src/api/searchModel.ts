@@ -17,6 +17,7 @@ import { getT } from '@/i18n'
 import { commands, events, type ModelTask, type SearchModelDone, type SearchModelStatus } from './bindings'
 import { useTauriEvent } from './client'
 import { useEventQuery } from './search'
+import { pickFolder } from '@/lib/pickFolder'
 
 export type { ModelTask, SearchModelStatus } from './bindings'
 
@@ -51,10 +52,7 @@ export async function pickModelZip(): Promise<string | null> {
 }
 
 /** Opens a folder dialog for a folder holding the model. Returns the path, or `null` if cancelled. */
-export async function pickModelFolder(): Promise<string | null> {
-  const path = await open({ multiple: false, directory: true })
-  return typeof path === 'string' ? path : null
-}
+export const pickModelFolder = () => pickFolder()
 
 /** Bytes in whole MB, for progress. */
 export const toMB = (bytes: number) => Math.round(bytes / 1_000_000)

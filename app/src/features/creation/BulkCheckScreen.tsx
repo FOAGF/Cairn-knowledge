@@ -1,14 +1,13 @@
 // "Check all unchecked" as one list (FR-KN-SV-4, UI-KN-7). `bulkChecks.ts` runs the checks, several
 // pages at a time; this screen shows a row per page, the actions on many pages at once, and the
 // details of one page when its row is opened.
-import { useQuery } from '@tanstack/react-query'
 import { ChevronDown, ChevronRight, CircleCheck, Pause, Play, RefreshCw, ShieldCheck } from 'lucide-react'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { commands, type GroupPick, type PageSummary } from '@/api/bindings'
 import { errorMessage } from '@/api/client'
-import { type PageFilter, useGroups, usePages } from '@/api/knowledge'
+import { type PageFilter, useGroups, usePages, usePagesByIds } from '@/api/knowledge'
 import { useCategoryList } from '@/api/categories'
 import { rankedByMeaning } from '@/api/search'
 import { useSettings } from '@/api/settings'
@@ -69,7 +68,7 @@ export function BulkCheckScreen() {
   }, [queue, unchecked.data])
   const ids = useMemo(() => queue?.map((p) => p.id) ?? [], [queue])
   // The pages as they are now (group, check status); a merged or deleted page drops out.
-  const live = useQuery({ queryKey: ['knowledge', 'pages', 'by-ids', ids], enabled: ids.length > 0, queryFn: () => commands.getPagesByIds(ids) }).data
+  const live = usePagesByIds(ids).data
   const pages = useMemo(() => (queue ?? []).flatMap((q) => live?.find((p) => p.id === q.id) ?? (live ? [] : [q])), [queue, live])
   const rows = useCheckRows((s) => s.rows)
 

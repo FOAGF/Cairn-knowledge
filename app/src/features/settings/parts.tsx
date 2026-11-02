@@ -1,6 +1,6 @@
 import { type ReactNode, useState } from 'react'
 import type { AuthMode, ModelConfig, Provider, ProviderKind, RequestFormat } from '@/api/providers'
-import { azureStyle } from '@/api/providers'
+import { azureStyle, effortLevels } from '@/api/providers'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
@@ -64,10 +64,9 @@ export function defaultFormat(provider: Pick<Provider, 'kind' | 'endpoint'>): Re
   return 'chat_completions'
 }
 
-/** "low · medium · high", or a dash when effort is off. */
+/** "low · medium · high"; empty when effort is off. */
 export function effortSummary(model: ModelConfig): string {
-  if (!model.effort.enabled) return ''
-  return (model.effort.levels ?? ['low', 'medium', 'high']).join(' · ')
+  return effortLevels(model).join(' · ')
 }
 
 /** A whole number between `min` and `max`, saved as soon as it is valid. */

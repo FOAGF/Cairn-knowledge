@@ -139,7 +139,7 @@ export function Composer({
       toast.info(c.fillIn(blank ?? open[0]), { description: c.fillInHint })
       return
     }
-    onSend(refs.stored(text.trim()), file)
+    onSend(refs.stored(text).trim(), file)
     setText('')
     setBlanks([])
   }

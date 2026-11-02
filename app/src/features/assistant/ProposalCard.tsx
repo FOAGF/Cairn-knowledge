@@ -24,6 +24,7 @@ import { type Messages, useT } from '@/i18n'
 import { PRIORITY_ORDER, STATUS_ORDER, TINT_CLASS, TYPE_ORDER, typeLabel } from '@/lib/labels'
 import type { Priority, TaskType } from '@/lib/types'
 import { cn } from '@/lib/utils'
+import { useAppStore } from '@/store'
 import { askBeforeEditing, holdPageEdit, pendingPath } from '../creation/pending'
 import { TermSuggestions } from '../glossary/TermSuggestions'
 import { NewTaskDialog } from '../tasks/NewTaskDialog'
@@ -386,6 +387,11 @@ function RowView({
   // editing with the proposed text. It is saved there, so Confirm must not save it again.
   const editPage = async (c: Change<'update_page'>) => {
     try {
+      // Opening the same proposal again continues the user's edits instead of replacing them.
+      if (useAppStore.getState().pageEdit?.pageId === c.pageId) {
+        void setProposalRow(message.id, index, false)
+        return navigate(`/knowledge/${c.pageId}`)
+      }
       const page = await commands.getPage(c.pageId)
       if (page.updatedAt !== c.baseUpdatedAt) return void toast.error(tp.pageChanged)
       const choice = await askBeforeEditing(page.id)

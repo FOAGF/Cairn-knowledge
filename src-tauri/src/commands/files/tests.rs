@@ -499,6 +499,101 @@ async fn a_revision_that_is_a_page_becomes_a_new_card_and_the_old_one_is_superse
 }
 
 #[tokio::test]
+async fn a_revision_reads_referenced_pages_and_tasks_as_sources() {
+    let env = setup().await;
+    env.file_draft("notes.md", "Original source.", "", Some(&env.chat_model))
+        .await;
+    let category = env.category.clone();
+    let (page_id, task_key) = env
+        .state
+        .with_db(move |db| {
+            let page = cairn_core::knowledge::create_page(
+                db,
+                cairn_core::knowledge::NewPage {
+                    category_id: category.clone(),
+                    title: "Writing guide".into(),
+                    body: "Use a concrete example in every section.".into(),
+                    ..Default::default()
+                },
+            )?;
+            let task = cairn_core::tasks::create(
+                db,
+                cairn_core::tasks::NewTask {
+                    category_id: category,
+                    title: "Review the guide".into(),
+                    description: Some("Explain the rollback steps.".into()),
+                    ..Default::default()
+                },
+            )?;
+            cairn_core::tasks::add_comment(db, &task.id, "Use the tested rollback command.")?;
+            Ok((page.id, task.key))
+        })
+        .await
+        .unwrap();
+    let request = format!("Follow [Old title](page:{page_id}) and #{task_key}.");
+    let revised = env.revise(&request).await;
+    assert!(revised.error.is_none(), "{:?}", revised.error);
+    let calls = env.calls().await;
+    let messages = calls.iter().rev().find(|c| c["kind"] == "revise").unwrap()["messages"]
+        .as_array()
+        .unwrap();
+    let source = messages[1]["content"].as_str().unwrap();
+    assert!(source.contains("Original source."), "{source}");
+    assert!(
+        source.contains("Use a concrete example in every section."),
+        "{source}"
+    );
+    assert!(source.contains("Explain the rollback steps."), "{source}");
+    assert!(
+        source.contains("Use the tested rollback command."),
+        "{source}"
+    );
+    assert_eq!(
+        messages.last().unwrap()["content"],
+        format!("Follow [[Writing guide]] and #{task_key}.")
+    );
+    let all = env.messages().await;
+    assert!(
+        all.iter()
+            .any(|m| m.role == ChatRole::User && m.text == request)
+    );
+    assert!(revised.draft.is_some());
+}
+
+#[tokio::test]
+async fn long_references_in_a_revision_share_the_source_budget() {
+    let env = setup().await;
+    env.file_draft("notes.md", "Original source.", "", Some(&env.chat_model))
+        .await;
+    let category = env.category.clone();
+    let page = env
+        .state
+        .with_db(move |db| {
+            cairn_core::knowledge::create_page(
+                db,
+                cairn_core::knowledge::NewPage {
+                    category_id: category,
+                    title: "Calibration guide".into(),
+                    body: long_text(40),
+                    ..Default::default()
+                },
+            )
+        })
+        .await
+        .unwrap();
+    let revised = env
+        .revise(&format!("Add calibration from [Guide](page:{})", page.id))
+        .await;
+    assert!(revised.error.is_none(), "{:?}", revised.error);
+    assert!(revised.draft.is_some());
+    let calls = env.calls().await;
+    let revisions: Vec<_> = calls.iter().filter(|c| c["kind"] == "revise").collect();
+    assert!(revisions.len() >= 2, "{calls:?}");
+    assert!(revisions[0]["chars"].as_u64().unwrap() > 10_000);
+    assert!(revisions.last().unwrap()["chars"].as_u64().unwrap() <= 10_000);
+}
+
+#[tokio::test]
 async fn a_revision_that_is_not_a_page_is_a_plain_answer_and_the_draft_stays() {
     let env = setup().await;
     let first = env

@@ -120,10 +120,6 @@ function parseLegacy(content: string): PageDraft | null {
 export async function installPendingPage() {
   if (installed || !isTauri()) return
   installed = true
-  // The storage the store used to keep it in is shared by every build: only a development build takes
-  // a page from there, once.
-  const fromStorage = import.meta.env.DEV ? useAppStore.getState().draft : null
-  useAppStore.setState({ draft: null, draftQueue: [], pageEdit: null })
   try {
     const saved = await commands.getDraft(KIND, REF)
     const parsed = saved && parse(saved.content)
@@ -132,7 +128,7 @@ export async function installPendingPage() {
     else if (edit && (await stillEdited(edit.pageId))) useAppStore.setState({ pageEdit: edit })
     else {
       const legacy = await commands.getDraft(KIND, LEGACY_REF)
-      const old = (legacy && parseLegacy(legacy.content)) ?? fromStorage
+      const old = legacy && parseLegacy(legacy.content)
       if (old) useAppStore.setState({ draft: old, draftQueue: [], draftPath: REVIEW_PATH })
       else await adoptPageEdit()
       if (old || saved || useAppStore.getState().pageEdit) {

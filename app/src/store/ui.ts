@@ -5,10 +5,7 @@ export interface UiSlice {
   setCommandOpen: (open: boolean) => void
 }
 
-export const initialUi = () => ({})
-
 export const createUiSlice: SliceCreator<UiSlice> = (set) => ({
-  ...initialUi(),
   commandOpen: false,
   setCommandOpen: (open) => set({ commandOpen: open }),
 })

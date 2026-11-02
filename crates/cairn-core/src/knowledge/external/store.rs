@@ -732,7 +732,8 @@ pub(crate) fn drop_unused_images(conn: &Connection, ext: &Ext, candidates: &[Str
             "SELECT 1 FROM drafts WHERE instr(content, ?1) > 0",
         ]
         .iter()
-        .any(|sql| conn.query_row(sql, [&needle], |_| Ok(())).optional().ok().flatten().is_some());
+        // A failed query counts as used: better to keep an image than to trash one in use.
+        .any(|sql| !matches!(conn.query_row(sql, [&needle], |_| Ok(())).optional(), Ok(None)));
         if used {
             continue;
         }

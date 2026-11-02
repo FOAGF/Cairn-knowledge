@@ -279,13 +279,7 @@ pub(crate) fn create_group(conn: &Connection, ext: &Ext, input: NewGroup) -> Res
     categories::get(conn, &input.category_id)?;
     let parent = match input.parent_id.as_deref().map(str::trim) {
         None | Some("") => None,
-        Some(p) => {
-            let g = get_group(conn, p)?;
-            if g.category_id != input.category_id {
-                return Err(CoreError::Invalid("The group belongs to another category.".into()));
-            }
-            Some(g)
-        }
+        Some(p) => Some(check_group(conn, &input.category_id, p)?),
     };
     let path = store::new_group_dir(conn, ext, &input.category_id, parent.as_ref(), &name)?;
     let now = now_iso();
@@ -313,7 +307,7 @@ fn parent_dir(conn: &Connection, ext: &Ext, category_id: &str, parent: Option<&G
         Some(g) => g
             .path
             .clone()
-            .ok_or_else(|| CoreError::Invalid("This group has no folder in the knowledge folder.".into())),
+            .ok_or_else(super::no_group_folder),
         None => store::category_dir(conn, ext, category_id, true),
     }
 }
@@ -344,10 +338,7 @@ pub(crate) fn update_group(conn: &Connection, ext: &Ext, id: &str, patch: GroupP
     if g.name != old.name || g.parent_id != old.parent_id {
         let parent = match &g.parent_id {
             Some(p) => {
-                let pg = get_group(conn, p)?;
-                if pg.category_id != g.category_id {
-                    return Err(CoreError::Invalid("The group belongs to another category.".into()));
-                }
+                let pg = check_group(conn, &g.category_id, p)?;
                 if pg.id == g.id || old.path.as_deref().is_some_and(|op| pg.path.as_deref().is_some_and(|pp| super::is_within(pp, op))) {
                     return Err(CoreError::Invalid("A group can't go inside itself.".into()));
                 }
@@ -358,12 +349,8 @@ pub(crate) fn update_group(conn: &Connection, ext: &Ext, id: &str, patch: GroupP
         let old_path = old
             .path
             .clone()
-            .ok_or_else(|| CoreError::Invalid("This group has no folder in the knowledge folder.".into()))?;
-        if g.name.eq_ignore_ascii_case("attachments") {
-            return Err(CoreError::Invalid(
-                "\"attachments\" is the folder for a category's images. Choose another name.".into(),
-            ));
-        }
+            .ok_or_else(super::no_group_folder)?;
+        super::check_group_name(&g.name)?;
         let dir = parent_dir(conn, ext, &g.category_id, parent.as_ref())?;
         let new_path = join(&dir, &g.name);
         if new_path != old_path {

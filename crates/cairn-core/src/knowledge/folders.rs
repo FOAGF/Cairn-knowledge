@@ -442,7 +442,9 @@ fn read_import(conn: &Connection, input: &FolderImportInput) -> Result<Vec<Sourc
             let name = clean_group_name(name)?;
             check_group_name_free(conn, &input.category_id, &name, None)?;
         }
-        (_, Some(g)) if !g.is_empty() => check_group(conn, &input.category_id, g)?,
+        (_, Some(g)) if !g.is_empty() => {
+            check_group(conn, &input.category_id, g)?;
+        }
         _ => {}
     }
     let root = PathBuf::from(&input.folder);

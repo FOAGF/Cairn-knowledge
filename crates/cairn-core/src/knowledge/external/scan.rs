@@ -537,7 +537,7 @@ fn in_scope(scope: &Scope, path: &str) -> bool {
 
 /// A top-level folder that can't be a category.
 fn not_a_category(folder: &str) -> bool {
-    folder.eq_ignore_ascii_case("attachments")
+    super::is_attachments(folder)
 }
 
 fn read_file(ext: &Ext, path: &str, meta: &std::fs::Metadata) -> std::result::Result<Read, String> {

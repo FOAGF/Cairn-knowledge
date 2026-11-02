@@ -525,15 +525,15 @@ fn check_title_free(
     Ok(())
 }
 
-/// The group must exist and belong to the page's category.
-fn check_group(conn: &Connection, category_id: &str, group_id: &str) -> Result<()> {
+/// The group, which must exist and belong to the category `category_id`.
+fn check_group(conn: &Connection, category_id: &str, group_id: &str) -> Result<Group> {
     let g = get_group(conn, group_id)?;
     if g.category_id != category_id {
         return Err(CoreError::Invalid(
             "The group belongs to another category.".into(),
         ));
     }
-    Ok(())
+    Ok(g)
 }
 
 /// Writes the page's own columns and its tags.

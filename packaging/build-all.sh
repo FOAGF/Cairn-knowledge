@@ -23,7 +23,7 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO="$(cd "$HERE/.." && pwd)"
+. "$HERE/common.sh"
 cd "$REPO"
 
 WIN_TARGET=x86_64-pc-windows-msvc
@@ -36,13 +36,6 @@ STEPS=("$@")
 wants() { local s; for s in "${STEPS[@]}"; do [ "$s" = "$1" ] && return 0; done; return 1; }
 # The Windows tools are checked and installed only when a Windows build is one of the steps.
 windows_too() { wants windows || wants windows-lite; }
-
-load_path() {
-    # cargo and node are normally on the PATH of a login shell; this makes `make` work from any shell.
-    [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
-    if ! command -v npm >/dev/null 2>&1 && [ -s "$HOME/.nvm/nvm.sh" ]; then . "$HOME/.nvm/nvm.sh"; fi
-    return 0
-}
 
 # at_least HAVE NEED: version HAVE (e.g. 1.92.1) is NEED or newer.
 at_least() { [ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | head -n 1)" = "$2" ]; }
@@ -154,7 +147,6 @@ for s in "${STEPS[@]}"; do
     esac
 done
 
-VERSION="$(python3 -I -c 'import json;print(json.load(open("src-tauri/tauri.conf.json"))["version"])')"
 log "done in $(( ($(date +%s) - began) / 60 )) min"
 if wants linux; then
     f="build/Cairn_${VERSION}_amd64.AppImage"

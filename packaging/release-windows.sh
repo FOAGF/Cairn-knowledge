@@ -22,26 +22,17 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO="$(cd "$HERE/.." && pwd)"
+. "$HERE/common.sh"
 cd "$REPO"
 
 STAGE="$REPO/build/stage/windows"
 TARGET=x86_64-pc-windows-msvc
-VERSION="$(python3 -I -c 'import json;print(json.load(open("src-tauri/tauri.conf.json"))["version"])')"
 EXE="$REPO/target/$TARGET/release/cairn.exe"
 NAME="Cairn-${VERSION}"
 ZIP="$REPO/build/${NAME}-windows-x64.zip"
 ZIP_LITE="$REPO/build/${NAME}-windows-x64-lite.zip"
 log() { echo "[release-windows] $*"; }
 
-need_tools() {
-    [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
-    if ! command -v npm >/dev/null 2>&1 && [ -s "$HOME/.nvm/nvm.sh" ]; then . "$HOME/.nvm/nvm.sh"; fi
-    for t in cargo npm; do
-        command -v "$t" >/dev/null 2>&1 || { log "$t is not installed or not on the PATH"; exit 1; }
-    done
-    cargo tauri --version >/dev/null 2>&1 || { log "the Tauri command line tool is missing (cargo install tauri-cli, online)"; exit 1; }
-}
 need_xwin() {
     command -v cargo-xwin >/dev/null 2>&1 || { log "cargo-xwin is missing (cargo install cargo-xwin, online); see poc/j-windows/README.md"; exit 1; }
     rustup target list --installed 2>/dev/null | grep -q "^$TARGET\$" || { log "the Rust target $TARGET is missing (rustup target add $TARGET, online)"; exit 1; }
@@ -59,13 +50,6 @@ step_model() {
 
 step_notice() { python3 -I "$HERE/notice.py" --windows; }
 step_notice_lite() { python3 -I "$HERE/notice.py" --windows --lite; }
-
-step_ui() {
-    need_tools
-    [ -d app/node_modules ] || { log "app/node_modules is missing: run 'npm ci' in app/ first (online)"; exit 1; }
-    log "UI build check (npm run build)"
-    (cd app && nice -n 10 npm run build)
-}
 
 step_exe() {
     need_tools

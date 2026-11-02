@@ -34,6 +34,7 @@ packaging/build-model.sh      the search model, sha256 checked -> build/stage/mo
 packaging/notice.py           the NOTICE file (Gemma terms + third-party licences) -> build/stage/NOTICE
 packaging/tauri.release.conf.json  overlay for `cargo tauri build --config` (AppImage and .deb): identifier, bundled resources, package details
 packaging/install.sh, audit.sh
+packaging/common.sh           what the release scripts source: the version, the PATH (cargo, nvm), need_tools, the UI step, ask
 packaging/publish.sh          `make publish`: the packages in build/ as a draft GitHub release, with SHA256SUMS and notes (D-87)
 
 packaging/release-windows.sh        the Windows steps: sidecar, model, notice, ui, exe, zip (`make release-windows`)

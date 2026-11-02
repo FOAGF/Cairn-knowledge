@@ -22,23 +22,16 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO="$(cd "$HERE/.." && pwd)"
+. "$HERE/common.sh"
 cd "$REPO"
 
 BUILD="$REPO/build"
-VERSION="$(python3 -I -c 'import json;print(json.load(open("src-tauri/tauri.conf.json"))["version"])')"
 TAG="v$VERSION"
 FILES=("Cairn_${VERSION}_amd64.deb" "Cairn-lite_${VERSION}_amd64.deb"
        "Cairn-${VERSION}-windows-x64.zip" "Cairn-${VERSION}-windows-x64-lite.zip")
 MAKES=("make release-deb" "make release-deb-lite" "make release-windows" "make release-windows-lite")
 NOTES="$BUILD/release-notes-$VERSION.md"
 log() { echo "[publish] $*"; }
-
-ask() {   # ask "question" -> 0 for yes; anything but y/yes is no
-    local answer=""
-    read -r -p "$1 [y/N] " answer || true
-    case "$answer" in y|Y|yes|YES|Yes) return 0 ;; *) return 1 ;; esac
-}
 
 step_check() {
     local problems=() i f cargo app since rebuild=false

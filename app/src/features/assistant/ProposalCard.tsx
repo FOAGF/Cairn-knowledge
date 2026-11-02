@@ -29,7 +29,7 @@ import { askBeforeEditing, holdPageEdit, pendingPath } from '../creation/pending
 import { TermSuggestions } from '../glossary/TermSuggestions'
 import { NewTaskDialog } from '../tasks/NewTaskDialog'
 import { DatePicker, LabelInput } from '../tasks/taskUi'
-import { PageDiff } from './PageDiff'
+import { PageDiff } from '@/components/shared/PageDiff'
 
 type Change<Op extends ProposedChange['op']> = Extract<ProposedChange, { op: Op }>
 

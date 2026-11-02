@@ -10,7 +10,7 @@ import { errorMessage } from '@/api/client'
 import { folderPath } from '@/api/storage'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { PageDiff } from '@/features/assistant/PageDiff'
+import { PageDiff } from '@/components/shared/PageDiff'
 import { useT } from '@/i18n'
 
 /**

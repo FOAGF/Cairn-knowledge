@@ -85,9 +85,9 @@ class Server:
 
     # ---- running a request
     def _run(self, req, fn):
-        if req.cancelled.is_set():
-            return
         try:
+            if req.cancelled.is_set():  # inside the try, so `finally` still forgets it
+                return
             req.result(fn(req))
         except BaseException as e:  # noqa: BLE001 - everything must become an answer
             err = errors.from_exception(e, self.secrets_of(req.params))

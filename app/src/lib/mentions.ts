@@ -1,6 +1,7 @@
 // Mention syntax (docs/requirements.md §3.3, DM-MN-1): `#PRX-12` for tasks and `[Title](page:<id>)` for pages.
 // Pages are stored by id, so renames never break a mention; the displayed title is looked up when shown.
 // A legacy `[[Title]]` is plain text now (kept only so old text can still be recognised).
+import { codeRanges } from './math'
 
 export const TASK_MENTION_RE = /(^|[^\w&])#([A-Z][A-Z0-9]{1,9}-\d+)\b/g
 /** `[Title](page:<id>)`: group 1 is the stored title, group 2 the page id. */
@@ -21,8 +22,19 @@ export function pageLink(title: string, id: string): string {
 
 /**
  * Turns `#KEY` into a markdown link with the custom scheme `cairn-task:KEY` so the renderer can draw a chip.
- * `[Title](page:<id>)` is already a link and is handled by the renderer.
+ * `[Title](page:<id>)` is already a link and is handled by the renderer. Code stays as written, as in
+ * Rust's `mentions::map_prose`.
  */
 export function mentionsToLinks(text: string): string {
-  return text.replace(TASK_MENTION_RE, (_m, pre: string, key: string) => `${pre}[${key}](cairn-task:${key})`)
+  if (!text.includes('#')) return text
+  const link = (prose: string) =>
+    prose.replace(TASK_MENTION_RE, (_m, pre: string, key: string) => `${pre}[${key}](cairn-task:${key})`)
+  let out = ''
+  let at = 0
+  for (const [from, to] of codeRanges(text)) {
+    if (from < at) continue
+    out += link(text.slice(at, from)) + text.slice(from, to)
+    at = to
+  }
+  return out + link(text.slice(at))
 }

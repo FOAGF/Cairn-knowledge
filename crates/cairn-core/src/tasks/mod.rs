@@ -272,6 +272,15 @@ fn write_task(conn: &Connection, t: &Task) -> Result<()> {
     Ok(())
 }
 
+/// Saves a changed task: its row and labels, today's version, an activity entry of `kind`, and the
+/// derived indexes (search, mentions, vectors).
+fn persist(conn: &Connection, t: &Task, kind: ActivityKind, st: &Stamp) -> Result<()> {
+    write_task(conn, t)?;
+    history::save_version(conn, t, st)?;
+    history::log_activity(conn, kind, &t.id, st)?;
+    crate::hooks::task_saved(conn, t)
+}
+
 /// Creates a task with the next number of its category (never reused). Title must not be empty.
 pub fn create(db: &mut Db, input: NewTask) -> Result<Task> {
     db.tx(|tx| create_in(tx, input, &Stamp::now()))
@@ -320,10 +329,7 @@ pub(crate) fn create_in(conn: &Connection, input: NewTask, st: &Stamp) -> Result
             task.completed_at,
         ],
     )?;
-    write_task(conn, &task)?;
-    history::save_version(conn, &task, st)?;
-    history::log_activity(conn, ActivityKind::TaskCreated, &task.id, st)?;
-    crate::hooks::task_saved(conn, &task)?;
+    persist(conn, &task, ActivityKind::TaskCreated, st)?;
     Ok(task)
 }
 
@@ -370,15 +376,12 @@ pub(crate) fn update_in(conn: &Connection, id: &str, patch: TaskPatch, st: &Stam
         t.completed_at = None;
     }
     t.updated_at = st.at.clone();
-    write_task(conn, &t)?;
-    history::save_version(conn, &t, st)?;
     let kind = if t.status == TaskStatus::Done && old.status != TaskStatus::Done {
         ActivityKind::TaskCompleted
     } else {
         ActivityKind::TaskUpdated
     };
-    history::log_activity(conn, kind, &t.id, st)?;
-    crate::hooks::task_saved(conn, &t)?;
+    persist(conn, &t, kind, st)?;
     Ok(t)
 }
 
@@ -418,10 +421,7 @@ pub(crate) fn move_in(conn: &Connection, id: &str, category_id: &str, st: &Stamp
         "INSERT OR REPLACE INTO task_key_aliases (key, task_id) VALUES (?1, ?2)",
         params![old.key, t.id],
     )?;
-    write_task(conn, &t)?;
-    history::save_version(conn, &t, st)?;
-    history::log_activity(conn, ActivityKind::TaskUpdated, &t.id, st)?;
-    crate::hooks::task_saved(conn, &t)?;
+    persist(conn, &t, ActivityKind::TaskUpdated, st)?;
     Ok(t)
 }
 

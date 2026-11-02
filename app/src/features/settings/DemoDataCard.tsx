@@ -8,7 +8,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { SectionCard } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { useT } from '@/i18n'
 import { resetDemoData } from '@/store'
 import { SettingRow } from './parts'
@@ -38,18 +38,15 @@ export function DemoDataCard() {
           <Button variant="destructive" onClick={() => setResetOpen(true)}>{d.resetButton}</Button>
         </SettingRow>
       </SectionCard>
-      <Dialog open={resetOpen} onOpenChange={setResetOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{d.confirmTitle}</DialogTitle>
-            <DialogDescription>{d.confirmBody}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setResetOpen(false)} disabled={busy}>{t.common.cancel}</Button>
-            <Button variant="destructive" onClick={() => void reset()} disabled={busy}>{busy ? d.resetting : d.confirm}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={resetOpen}
+        title={d.confirmTitle}
+        description={d.confirmBody}
+        confirmLabel={busy ? d.resetting : d.confirm}
+        busy={busy}
+        onClose={() => setResetOpen(false)}
+        onConfirm={() => void reset()}
+      />
     </>
   )
 }

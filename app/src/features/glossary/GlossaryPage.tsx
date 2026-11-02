@@ -7,7 +7,7 @@ import { type GlossaryEntry, useCreateGlossaryEntry, useDeleteGlossaryEntry, use
 import { errorMessage, isApiError } from '@/api/client'
 import { EmptyState, PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
-import { ConfirmDialog } from '@/features/knowledge/GroupDialogs'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { GlossaryDetail } from './GlossaryDetail'
 import { GlossaryForm, type EntryDraft } from './GlossaryForm'
 import { GlossaryList, inScope, matchesQuery, type ScopeFilter } from './GlossaryList'

@@ -10,9 +10,9 @@ import { EmptyState, SectionCard } from '@/components/shared/PageHeader'
 import { StatusDropdown, useChangeTask } from '@/components/shared/task-status'
 import { PriorityIcon, CategoryDot, TaskTypeIcon } from '@/components/shared/tint'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { useT } from '@/i18n'
 import { fullDate } from '@/lib/format'
 import { priorityLabel, PRIORITY_ORDER, TYPE_ORDER } from '@/lib/labels'
@@ -282,33 +282,22 @@ export default function TaskDetailPage() {
       </div>
 
       {/* FR-TASK-UI-3: deleting asks for confirmation */}
-      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{d.deleteTitle(task.key)}</DialogTitle>
-            <DialogDescription>{d.deleteDescription(task.title)}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmDelete(false)}>
-              {t.common.cancel}
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                deleteTask.mutate(task.id, {
-                  onSuccess: () => {
-                    setConfirmDelete(false)
-                    toast.success(d.deleted(task.key))
-                    navigate('/tasks')
-                  },
-                })
-              }}
-            >
-              {d.deleteTask}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={confirmDelete}
+        title={d.deleteTitle(task.key)}
+        description={d.deleteDescription(task.title)}
+        confirmLabel={d.deleteTask}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={() =>
+          deleteTask.mutate(task.id, {
+            onSuccess: () => {
+              setConfirmDelete(false)
+              toast.success(d.deleted(task.key))
+              navigate('/tasks')
+            },
+          })
+        }
+      />
     </div>
   )
 }

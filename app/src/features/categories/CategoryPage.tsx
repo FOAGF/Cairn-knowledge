@@ -183,7 +183,7 @@ function RecentActivity({ category }: { category: Category }) {
     }
     const list = [...byRef.values()]
     return list.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 5)
-  }, [myTasks, myPages, activity, category.id])
+  }, [myTasks, myPages, activity])
 
   return (
     <SectionCard icon={Clock} tint="slate" title={a.title} description={a.description}>

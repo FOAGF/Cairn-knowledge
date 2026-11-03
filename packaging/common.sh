@@ -1,8 +1,10 @@
 # Sourced by the release scripts (release.sh, release-windows.sh, build-all.sh, publish.sh, audit.sh):
-# the repository, the version being built, the tools on the PATH and a yes/no question. The script
+# the repository, the release's version, the tools on the PATH and a yes/no question. The script
 # that sources it defines `log` and goes to "$REPO" itself.
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# The version in tauri.conf.json, which publish.sh releases. The scripts that build packages replace it
+# with the build's own version from version.sh (D-90), the same on a tagged commit.
 VERSION="$(python3 -I -c 'import json, sys; print(json.load(open(sys.argv[1]))["version"])' "$REPO/src-tauri/tauri.conf.json")"
 
 # cargo and node are normally on the PATH of a login shell; this makes `make` work from any shell.

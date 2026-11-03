@@ -572,6 +572,7 @@ export type AppFolder =
 "switchBackups";
 
 export type AppInfo = {
+	/**  The build's version (D-90): `1.0.0` from a tagged commit, `1.0.0-47-g3bb7870` after it. */
 	version: string,
 	/**  When this build was made, in UTC (RFC 3339), for Settings › About (UI-SET-5). */
 	buildTime: string | null,

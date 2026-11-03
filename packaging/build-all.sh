@@ -147,6 +147,7 @@ for s in "${STEPS[@]}"; do
     esac
 done
 
+VERSION="$("$HERE/version.sh")"   # as the release scripts name their files (D-90)
 log "done in $(( ($(date +%s) - began) / 60 )) min"
 if wants linux; then
     f="build/Cairn_${VERSION}_amd64.AppImage"

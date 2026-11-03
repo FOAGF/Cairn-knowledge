@@ -110,7 +110,7 @@ async fn check() -> Result<Value, String> {
 
     if model_dir.is_none() {
         return Ok(json!({
-            "version": env!("CARGO_PKG_VERSION"),
+            "version": env!("CAIRN_BUILD_VERSION"),
             "python": pong.get("python"),
             "python_path": python,
             "model_dir": null,
@@ -137,7 +137,7 @@ async fn check() -> Result<Value, String> {
         return Err(format!("the embedding is not normalised (length {norm})"));
     }
     Ok(json!({
-        "version": env!("CARGO_PKG_VERSION"),
+        "version": env!("CAIRN_BUILD_VERSION"),
         "python": pong.get("python"),
         "python_path": python,
         "model_dir": model_dir,

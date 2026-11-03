@@ -253,6 +253,8 @@ pub fn export_bindings(builder: &tauri_specta::Builder<tauri::Wry>) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // D-90: exports and backups record the build's version (build.rs).
+    cairn_core::export::set_app_version(env!("CAIRN_BUILD_VERSION"));
     let paths = cairn_core::DataPaths::new(cairn_core::paths::resolve_data_dir());
     let logs = logging::init(&paths.logs_dir());
     let builder = specta_builder();

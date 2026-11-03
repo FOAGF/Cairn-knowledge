@@ -27,7 +27,9 @@ cd "$REPO"
 
 STAGE="$REPO/build/stage/windows"
 TARGET=x86_64-pc-windows-msvc
-VERSION="$(python3 -I -c 'import json;print(json.load(open("src-tauri/tauri.conf.json"))["version"])')"
+# The version (D-90, packaging/version.sh), in the program (build.rs and Tauri's version) and the zips' names.
+VERSION="$("$HERE/version.sh")"
+export CAIRN_BUILD_VERSION="$VERSION"
 EXE="$REPO/target/$TARGET/release/cairn.exe"
 NAME="Cairn-${VERSION}"
 ZIP="$REPO/build/${NAME}-windows-x64.zip"
@@ -74,7 +76,7 @@ step_exe() {
     # --no-bundle: no installer (D-56), and Tauri copies no resources then; the zip step lays them out.
     # The overlay sets the release identifier. The UI build is Tauri's beforeBuildCommand.
     CARGO_BUILD_JOBS="${CAIRN_JOBS:-5}" nice -n 10 cargo tauri build --runner cargo-xwin --target "$TARGET" \
-        --no-bundle --config packaging/tauri.release.windows.conf.json
+        --no-bundle --config packaging/tauri.release.windows.conf.json --config "{\"version\":\"$VERSION\"}"
     [ -f "$EXE" ] || { log "expected $EXE, but it is not there"; exit 1; }
     log "built $EXE ($(du -h "$EXE" | cut -f1))"
 }

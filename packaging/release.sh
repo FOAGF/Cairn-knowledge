@@ -21,6 +21,7 @@
 #                                   and the self-test expects no model
 #
 # The finished packages go to build/ (D-85), the lite and full ones side by side: building one keeps the other's file.
+# Their version (D-90, packaging/version.sh): 1.0.0 from a commit tagged v1.0.0, 1.0.0-47-g3bb7870 after it.
 # Settings (environment): CAIRN_JOBS (cargo jobs, default 5), CAIRN_EMBED_MODEL_SRC (see build-model.sh),
 # CAIRN_APPIMAGE_FLAGS (extra arguments when the AppImage is started, e.g. none needed with libfuse2).
 # The heavy steps run at low priority (nice 10), so the machine stays usable.
@@ -30,7 +31,9 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/.." && pwd)"
 cd "$REPO"
 
-VERSION="$(python3 -I -c 'import json;print(json.load(open("src-tauri/tauri.conf.json"))["version"])')"
+VERSION="$("$HERE/version.sh")"
+# The same version goes into the program (build.rs) and the packages (Tauri's version), so name and content agree.
+export CAIRN_BUILD_VERSION="$VERSION"
 BUILD="$REPO/build"
 STAGE="$BUILD/stage"
 APPIMAGE="$BUILD/Cairn_${VERSION}_amd64.AppImage"
@@ -41,8 +44,8 @@ DEB_LITE="$BUILD/Cairn-lite_${VERSION}_amd64.deb"
 TAURI_APPIMAGE="$REPO/target/release/bundle/appimage/Cairn_${VERSION}_amd64.AppImage"
 TAURI_DEB="$REPO/target/release/bundle/deb/Cairn_${VERSION}_amd64.deb"
 # The lite overlay goes on top of the release overlay: it drops models/ and maps NOTICE-lite to NOTICE (D-82).
-FULL_CONFIG=(--config packaging/tauri.release.conf.json)
-LITE_CONFIG=(--config packaging/tauri.release.conf.json --config packaging/tauri.release.lite.conf.json)
+FULL_CONFIG=(--config packaging/tauri.release.conf.json --config "{\"version\":\"$VERSION\"}")
+LITE_CONFIG=("${FULL_CONFIG[@]}" --config packaging/tauri.release.lite.conf.json)
 log() { echo "[release] $*"; }
 
 need_tools() {
@@ -261,6 +264,6 @@ case "${1:-all}" in
     selftest-lite) shift; step_selftest_as lite "$@" ;;
     deb-lite-only) step_deb_lite ;;
     selftest-deb-lite) shift; step_selftest_deb_as lite "$@" ;;
-    -h|--help|help) sed -n '2,26p' "${BASH_SOURCE[0]}" ;;
+    -h|--help|help) sed -n '2,27p' "${BASH_SOURCE[0]}" ;;
     *) echo "unknown step '$1'; try: all deb-all lite deb-lite sidecar model notice notice-lite ui appimage appimage-lite selftest selftest-lite deb deb-lite-only selftest-deb selftest-deb-lite" >&2; exit 2 ;;
 esac

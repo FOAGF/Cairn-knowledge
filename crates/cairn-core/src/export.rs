@@ -78,6 +78,20 @@ const MANIFEST: &str = "manifest.json";
 const TABLES_DIR: &str = "tables/";
 const ATTACHMENTS_DIR: &str = "attachments/";
 
+static APP_VERSION: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+
+/// D-90: the app's build version (e.g. `1.0.0-47-g3bb7870`), which every archive's manifest
+/// records. The app sets it once at start; tests and tools keep the crate's version.
+pub fn set_app_version(version: &str) {
+    let _ = APP_VERSION.set(version.to_string());
+}
+
+fn app_version() -> &'static str {
+    APP_VERSION
+        .get()
+        .map_or(env!("CARGO_PKG_VERSION"), String::as_str)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Manifest {
@@ -522,7 +536,7 @@ fn write_archive(
     let tx = conn.unchecked_transaction()?;
     let (knowledge_mode, external_root) = crate::settings::knowledge_mode(conn)?;
     let mut manifest = Manifest {
-        app_version: env!("CARGO_PKG_VERSION").to_string(),
+        app_version: app_version().to_string(),
         export_format: EXPORT_FORMAT_VERSION,
         schema_version: conn.query_row("PRAGMA user_version", [], |r| r.get(0))?,
         exported_at: exported_at.to_string(),

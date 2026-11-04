@@ -27,8 +27,8 @@ export const commands = {
 	/**  A free task key for a new category's name (FR-PRJ-6). */
 	suggestCategoryKey: (name: string) => __TAURI_INVOKE<string>("suggest_category_key", { name }),
 	/**
-	 *  Development builds only: inserts the prototype's sample categories that the not-yet-migrated
-	 *  mock screens refer to. Insert-if-missing; never changes existing categories.
+	 *  Development builds only: inserts the sample categories that the dev seed's tasks and pages
+	 *  refer to. Insert-if-missing; never changes existing categories.
 	 */
 	devSeedCategories: (seeds: CategorySeed[]) => __TAURI_INVOKE<number>("dev_seed_categories", { seeds }),
 	getSettings: () => __TAURI_INVOKE<Settings>("get_settings"),
@@ -186,12 +186,6 @@ export const commands = {
 	 *  with `meaning.state = unavailable`.
 	 */
 	searchHybrid: (query: SearchQuery) => __TAURI_INVOKE<HybridResult>("search_hybrid", { query }),
-	/**
-	 *  *Find similar pages* (FR-RAG-SR-5): pages closest in meaning to `page_id` (score = cosine
-	 *  similarity, best first; `matchedBy = meaning`). Without the index, falls back to a keyword
-	 *  search on the title with `meaning.state = unavailable`.
-	 */
-	findSimilarPages: (pageId: string, limit: number | null) => __TAURI_INVOKE<HybridResult>("find_similar_pages", { pageId, limit }),
 	/**  Vector index progress (Settings › Search, FR-RAG-IX-5). Changes arrive as the `IndexProgress` event. */
 	getIndexProgress: () => __TAURI_INVOKE<IndexProgress>("get_index_progress"),
 	listConversations: () => __TAURI_INVOKE<Conversation[]>("list_conversations"),
@@ -207,7 +201,7 @@ export const commands = {
 	/**  Stops the conversation's running jobs, then deletes it with its messages and file texts. */
 	deleteConversation: (id: string) => __TAURI_INVOKE<null>("delete_conversation", { id }),
 	listMessages: (conversationId: string) => __TAURI_INVOKE<ChatMessage[]>("list_messages", { conversationId }),
-	/**  A message written by the UI: the user's question and the prototype's answers until M6. */
+	/**  A message written as given, without a job (the probes use it to set up a conversation). */
 	addMessage: (conversationId: string, input: NewMessage) => __TAURI_INVOKE<ChatMessage>("add_message", { conversationId, input }),
 	/**
 	 *  Card changes from the UI (*Review* → `in_review`, saved, discarded). Releasing the file
@@ -252,8 +246,9 @@ export const commands = {
 	/**  [`run_check`] as a command, cancellable with `input.job_id`. */
 	checkPage: (input: CheckInput) => __TAURI_INVOKE<CheckReport>("check_page", { input }),
 	/**
-	 *  FR-KN-DU-1: the draft's pieces (`chunking::split_page`) are embedded as documents and compared
-	 *  with the index (`vectors::similar_to_vectors`), across all categories; keyword search on the title
+	 *  FR-KN-DU-1: the draft's pieces, built as the indexer builds a saved page's
+	 *  (`vectors::draft_pieces`, glossary lines included), are embedded as documents and compared with
+	 *  the index (`vectors::similar_to_vectors`), across all categories; keyword search on the title
 	 *  while the index isn't ready. Ranked by `checks::rank_duplicates` with Settings › Knowledge
 	 *  "likely the same topic".
 	 */
@@ -1709,7 +1704,7 @@ export type NewPage = {
 	sourceInfo?: string | null,
 	origin?: PageOrigin | null,
 	originTaskId?: string | null,
-	/**  Default `not_checked`; the (simulated until M5) save pipeline may pass `checked`. */
+	/**  Default `not_checked`; the save pipeline may pass `checked`. */
 	checkStatus?: CheckStatus | null,
 };
 

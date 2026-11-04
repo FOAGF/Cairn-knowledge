@@ -1,5 +1,4 @@
 //! Keyword search over pages and tasks (FR-KN-UI-2, keyword part of FR-RAG-SR-1, NFR-I18N-4).
-//! Owned by the M3 search agent.
 //!
 //! The FTS5 table `search_index` (migration 0003) holds one row per page and per task.
 //! Text is "spaced": a separator is inserted between Han characters (CJK ideographs) so the
@@ -11,7 +10,7 @@
 //! as the inserted separator. That makes snippets exactly reversible: removing U+200B restores the
 //! original text, whatever spaces the user typed. Queries use plain spaces (same tokens).
 
-use rusqlite::{Connection, params, params_from_iter, types::Value};
+use rusqlite::{Connection, OptionalExtension, params, params_from_iter, types::Value};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
@@ -257,11 +256,7 @@ pub(crate) fn index_page(conn: &Connection, page_id: &str) -> Result<()> {
                 r.get::<_, Option<String>>(4)?,
             ))
         })
-        .map(Some)
-        .or_else(|e| match e {
-            rusqlite::Error::QueryReturnedNoRows => Ok(None),
-            e => Err(e),
-        })?;
+        .optional()?;
     if let Some((id, title, body, source, tags)) = row {
         let terms = glossary::used_lines(conn, SearchKind::Page, &id)?;
         let [t, b, x] = page_row(&title, &body, source.as_deref(), tags.as_deref(), &terms);
@@ -286,11 +281,7 @@ pub(crate) fn index_task(conn: &Connection, task_id: &str) -> Result<()> {
                 r.get::<_, Option<String>>(5)?,
             ))
         })
-        .map(Some)
-        .or_else(|e| match e {
-            rusqlite::Error::QueryReturnedNoRows => Ok(None),
-            e => Err(e),
-        })?;
+        .optional()?;
     if let Some((id, key, title, desc, labels, comments)) = row {
         let terms = glossary::used_lines(conn, SearchKind::Task, &id)?;
         let [t, b, x] = task_row(
@@ -320,11 +311,7 @@ pub(crate) fn remove(conn: &Connection, kind: SearchKind, id: &str) -> Result<()
     let rowid: Option<i64> = conn
         .prepare_cached("SELECT rowid FROM search_ref WHERE ref_id = ?1 AND kind = ?2")?
         .query_row(params![id, kind.as_str()], |r| r.get(0))
-        .map(Some)
-        .or_else(|e| match e {
-            rusqlite::Error::QueryReturnedNoRows => Ok(None),
-            e => Err(e),
-        })?;
+        .optional()?;
     if let Some(rowid) = rowid {
         conn.prepare_cached("DELETE FROM search_index WHERE rowid = ?1")?
             .execute([rowid])?;
@@ -568,7 +555,6 @@ pub fn rebuild(conn: &Connection) -> Result<()> {
 mod tests {
     use super::*;
     use crate::Db;
-    use crate::categories::{self, NewCategory, CategoryColor};
     use crate::tasks::{self, NewTask, TaskPatch, TaskStatus};
 
     struct Env {
@@ -582,17 +568,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let db = Db::open_at(dir.path()).unwrap();
         let mk = |name: &str, key: &str| {
-            categories::create(
-                db.conn(),
-                NewCategory {
-                    name: name.into(),
-                    key: key.into(),
-                    description: String::new(),
-                    color: CategoryColor::preset("blue"),
-                },
-            )
-            .unwrap()
-            .id
+            crate::test_util::category(db.conn(), name, key)
         };
         let a = mk("Alpha", "AAA");
         let b = mk("Beta", "BBB");

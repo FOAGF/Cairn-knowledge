@@ -6,8 +6,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { useT } from '@/i18n'
 import { fullDate } from '@/lib/format'
 import type { Page, PageVersion } from '@/api/knowledge'
-import { cn } from '@/lib/utils'
-import { lineDiff } from './utils'
+import { DiffRow } from '@/components/shared/PageDiff'
+import { lineDiff } from '@/lib/lineDiff'
 
 export function HistoryDialog({ version, page, onClose, onRestore }: { version: PageVersion | null; page: Page; onClose: () => void; onRestore: (v: PageVersion) => void }) {
   const [view, setView] = useState<'version' | 'diff'>('diff')
@@ -43,13 +43,7 @@ export function HistoryDialog({ version, page, onClose, onRestore }: { version: 
             (changed ? (
               <pre className="font-mono text-xs leading-6 whitespace-pre-wrap">
                 {diff.map((d, i) => (
-                  <div
-                    key={i}
-                    className={cn('rounded px-2', d.type === 'add' && 'bg-tint-green text-tint-green-fg', d.type === 'del' && 'bg-tint-rose text-tint-rose-fg line-through decoration-1', d.type === 'same' && 'text-muted-foreground')}
-                  >
-                    {d.type === 'add' ? '+ ' : d.type === 'del' ? '- ' : '  '}
-                    {d.text || ' '}
-                  </div>
+                  <DiffRow key={i} line={d} />
                 ))}
               </pre>
             ) : (

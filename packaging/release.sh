@@ -28,7 +28,7 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO="$(cd "$HERE/.." && pwd)"
+. "$HERE/common.sh"
 cd "$REPO"
 
 VERSION="$("$HERE/version.sh")"
@@ -48,27 +48,10 @@ FULL_CONFIG=(--config packaging/tauri.release.conf.json --config "{\"version\":\
 LITE_CONFIG=("${FULL_CONFIG[@]}" --config packaging/tauri.release.lite.conf.json)
 log() { echo "[release] $*"; }
 
-need_tools() {
-    # cargo and node are normally on the PATH of a login shell; this makes `make release` work from any shell.
-    [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
-    if ! command -v npm >/dev/null 2>&1 && [ -s "$HOME/.nvm/nvm.sh" ]; then . "$HOME/.nvm/nvm.sh"; fi
-    for t in cargo npm; do
-        command -v "$t" >/dev/null 2>&1 || { log "$t is not installed or not on the PATH"; exit 1; }
-    done
-    cargo tauri --version >/dev/null 2>&1 || { log "the Tauri command line tool is missing (cargo install tauri-cli, online)"; exit 1; }
-}
-
 step_sidecar() { nice -n 10 "$HERE/build-sidecar.sh"; }
 step_model()   { nice -n 10 "$HERE/build-model.sh"; }
 step_notice()  { python3 -I "$HERE/notice.py"; }
 step_notice_lite() { python3 -I "$HERE/notice.py" --lite; }
-
-step_ui() {
-    need_tools
-    [ -d app/node_modules ] || { log "app/node_modules is missing: run 'npm ci' in app/ first (online)"; exit 1; }
-    log "UI build check (npm run build)"
-    (cd app && nice -n 10 npm run build)
-}
 
 need_built() {
     local f
@@ -198,7 +181,7 @@ step_selftest_deb_as() {
     log "self-test: unpacking $(basename "$deb") into $root and starting it once (throw-away data folder $data)"
     dpkg-deb -x "$deb" "$root"
     if [ "$mode" = lite ] && [ -e "$root/usr/lib/Cairn/models" ]; then
-        rm -rf "${root:?}"; log "the lite package holds usr/lib/Cairn/models"; exit 1
+        rm -rf "${data:?}" "${root:?}"; log "the lite package holds usr/lib/Cairn/models"; exit 1
     fi
     out="$(env -u CAIRN_SIDECAR_PYTHON -u CAIRN_EMBED_MODEL_DIR CAIRN_DATA_DIR="$data" \
         timeout 300 "$root/usr/bin/cairn" --self-test | tail -n 1)" || rc=$?

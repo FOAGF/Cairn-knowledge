@@ -20,6 +20,23 @@ impl ApiError {
             message: message.into(),
         }
     }
+
+    /// A request Cairn refuses, with a message for the user.
+    pub fn invalid(message: impl Into<String>) -> Self {
+        Self {
+            kind: "invalid".into(),
+            message: message.into(),
+        }
+    }
+}
+
+/// Demo data and other development helpers: refused in a release build.
+pub fn dev_only() -> ApiResult<()> {
+    if cfg!(debug_assertions) {
+        Ok(())
+    } else {
+        Err(ApiError::invalid("Demo data is only available in development builds."))
+    }
 }
 
 impl From<cairn_core::CoreError> for ApiError {

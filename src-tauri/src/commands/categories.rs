@@ -3,7 +3,7 @@
 use cairn_core::categories::{self, NewCategory, Category, CategoryChanges, CategorySeed};
 use tauri::{AppHandle, State};
 
-use crate::error::{ApiError, ApiResult};
+use crate::error::ApiResult;
 use crate::events::{Entity, emit_changed};
 use crate::state::AppState;
 
@@ -48,8 +48,10 @@ pub async fn update_category(
     id: String,
     changes: CategoryChanges,
 ) -> ApiResult<Category> {
+    // One transaction: in external mode a rename moves the folder and rewrites paths and links,
+    // all of which must land together (as a group rename does).
     let category = state
-        .with_db(move |db| categories::update(db.conn(), &id, changes))
+        .with_db(move |db| db.tx(|tx| categories::update(tx, &id, changes)))
         .await?;
     // External mode: a new name renamed the category's folder, so its pages' paths changed.
     if category.folder.is_some() {
@@ -84,8 +86,8 @@ pub async fn suggest_category_key(state: State<'_, AppState>, name: String) -> A
         .await
 }
 
-/// Development builds only: inserts the prototype's sample categories that the not-yet-migrated
-/// mock screens refer to. Insert-if-missing; never changes existing categories.
+/// Development builds only: inserts the sample categories that the dev seed's tasks and pages
+/// refer to. Insert-if-missing; never changes existing categories.
 #[tauri::command]
 #[specta::specta]
 pub async fn dev_seed_categories(
@@ -93,12 +95,7 @@ pub async fn dev_seed_categories(
     state: State<'_, AppState>,
     seeds: Vec<CategorySeed>,
 ) -> ApiResult<u32> {
-    if !cfg!(debug_assertions) {
-        return Err(ApiError {
-            kind: "invalid".into(),
-            message: "Demo data is only available in development builds.".into(),
-        });
-    }
+    crate::error::dev_only()?;
     let inserted = state
         .with_db(move |db| categories::seed_if_missing(db.conn(), &seeds))
         .await?;

@@ -12,7 +12,6 @@ import {
   type FileDraftInput,
   type MessagePatch,
   type NewConversation,
-  type NewMessage,
   type ReviseInput,
 } from './bindings'
 
@@ -30,7 +29,6 @@ export type {
 } from './bindings'
 
 const NONE_C: Conversation[] = []
-const NONE_M: ChatMessage[] = []
 
 /** Newest activity first. */
 export function useConversations() {
@@ -51,14 +49,6 @@ export function useMessages(conversationId: string | undefined) {
   })
 }
 
-export function useMessageList(conversationId: string | undefined): ChatMessage[] {
-  return useMessages(conversationId).data ?? NONE_M
-}
-
-export function useCreateConversation() {
-  return useMutation({ mutationFn: (input: NewConversation) => commands.createConversation(input) })
-}
-
 export function useUpdateConversation() {
   return useMutation({ mutationFn: ({ id, patch }: { id: string; patch: ConversationPatch }) => commands.updateConversation(id, patch) })
 }
@@ -72,13 +62,7 @@ export const updateConversation = (id: string, patch: ConversationPatch) => comm
 /** FR-LLM-AS-13: archived conversations are read-only and deleted for good after three days. */
 export const archiveConversation = (id: string) => commands.archiveConversation(id)
 export const restoreConversation = (id: string) => commands.restoreConversation(id)
-export const addMessage = (conversationId: string, input: NewMessage) => commands.addMessage(conversationId, input)
 export const updateMessage = (id: string, patch: MessagePatch) => commands.updateMessage(id, patch)
-
-/** The conversation as it is now in the database; `undefined` when it was deleted. For code outside React. */
-export async function fetchConversation(id: string): Promise<Conversation | undefined> {
-  return (await commands.listConversations()).find((c) => c.id === id)
-}
 
 /** The messages as they are now in the database. For code outside React. */
 export const fetchConversationMessages = (conversationId: string) => commands.listMessages(conversationId)

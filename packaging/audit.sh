@@ -12,19 +12,12 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO="$(cd "$HERE/.." && pwd)"
+. "$HERE/common.sh"
 cd "$REPO"
-[ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
-if ! command -v npm >/dev/null 2>&1 && [ -s "$HOME/.nvm/nvm.sh" ]; then . "$HOME/.nvm/nvm.sh"; fi
+load_path
 
 AUDIT_VENV="$REPO/build/cache/audit-venv"      # pip-audit lives here, apart from the sidecar's packages
 log() { echo "[audit] $*"; }
-
-ask() {   # ask "question" -> 0 for yes; anything but y/yes is no
-    local answer=""
-    read -r -p "$1 [y/N] " answer || true
-    case "$answer" in y|Y|yes|YES|Yes) return 0 ;; *) return 1 ;; esac
-}
 
 if [ ! -t 0 ]; then
     log "this needs a terminal: it asks before going online, and nothing can answer for you."

@@ -124,10 +124,10 @@ pub(super) fn list_on(
     );
     // Text matching is done in Rust: SQLite's lower() and LIKE only fold ASCII case.
     let limit = filter.limit.map(|l| l as usize);
-    if words.is_none() {
-        if let Some(l) = limit {
-            sql.push_str(&format!(" LIMIT {l}"));
-        }
+    if words.is_none()
+        && let Some(l) = limit
+    {
+        sql.push_str(&format!(" LIMIT {l}"));
     }
 
     let mut stmt = conn.prepare(&sql)?;

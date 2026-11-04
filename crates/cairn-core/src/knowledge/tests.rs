@@ -4,7 +4,7 @@ use chrono::NaiveDate;
 use rusqlite::Connection;
 
 use super::*;
-use crate::categories::{self, NewCategory, CategoryColor};
+use crate::categories;
 use crate::tasks::{NewTask, Stamp};
 use crate::{CoreError, attachments, drafts, mentions};
 
@@ -23,17 +23,7 @@ fn env() -> Env {
     let dir = tempfile::tempdir().unwrap();
     let db = Db::open_at(dir.path()).unwrap();
     let mk = |name: &str, key: &str| {
-        categories::create(
-            db.conn(),
-            NewCategory {
-                name: name.into(),
-                key: key.into(),
-                description: String::new(),
-                color: CategoryColor::preset("blue"),
-            },
-        )
-        .unwrap()
-        .id
+        crate::test_util::category(db.conn(), name, key)
     };
     let a = mk("Alpha", "AAA");
     let b = mk("Beta", "BBB");
@@ -1205,10 +1195,7 @@ fn deleting_the_target_or_a_task_removes_rows() {
     // Deleting the target page drops rows pointing at it.
     delete_page(&mut e.db, &target.id).unwrap();
     assert_eq!(e.count("SELECT COUNT(*) FROM mentions"), 0);
-    assert_eq!(
-        get_page(e.db.conn(), &p.id).unwrap().body.contains("page:"),
-        true
-    );
+    assert!(get_page(e.db.conn(), &p.id).unwrap().body.contains("page:"));
 }
 
 #[test]

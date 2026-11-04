@@ -8,8 +8,8 @@
 // Code (fenced blocks and inline code spans) is never changed. The spelling check masks the same
 // spans (crates/cairn-core/src/lint.rs, `math_ranges`).
 
-/** Ranges [from, to) of fenced code blocks and inline code spans. */
-function codeRanges(md: string): Array<[number, number]> {
+/** Ranges [from, to) of fenced code blocks and inline code spans (mentions skip them too). */
+export function codeRanges(md: string): Array<[number, number]> {
   const ranges: Array<[number, number]> = []
   let fence: { ch: string; len: number; from: number } | null = null
   for (let s = 0; s <= md.length; ) {

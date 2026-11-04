@@ -2,12 +2,12 @@ import { Archive, ArchiveRestore, ChevronRight, FileUp, MessageSquare, MoreHoriz
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
-import { errorMessage } from '@/api/client'
+import { errorMessage, toastError } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
-import { ConfirmDialog } from '@/features/knowledge/GroupDialogs'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { useT } from '@/i18n'
 import { timeAgo, timeUntil } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -44,11 +44,11 @@ export function ConversationList({ activeId }: { activeId?: string }) {
       () =>
         toast.success(tc.archived, {
           description: tc.archivedDescription,
-          action: { label: tc.undo, onClick: () => void restoreConversation(c.id).catch((e) => toast.error(errorMessage(e))) },
+          action: { label: tc.undo, onClick: () => void restoreConversation(c.id).catch(toastError) },
         }),
       (e) => toast.error(errorMessage(e)),
     )
-  const restore = (c: Conversation) => void restoreConversation(c.id).catch((e) => toast.error(errorMessage(e)))
+  const restore = (c: Conversation) => void restoreConversation(c.id).catch(toastError)
 
   const row = (c: Conversation) => (
     <li key={c.id}>
@@ -159,7 +159,7 @@ export function ConversationList({ activeId }: { activeId?: string }) {
             value={renaming?.title ?? ''}
             onChange={(e) => setRenaming((r) => r && { ...r, title: e.target.value })}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && renaming?.title.trim()) {
+              if (e.key === 'Enter' && !e.nativeEvent.isComposing && renaming?.title.trim()) {
                 updateConversation(renaming.id, { title: renaming.title.trim() })
                 setRenaming(null)
               }

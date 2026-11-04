@@ -1,23 +1,14 @@
 //! Dev seed: the prototype's sample knowledge, inserted where ids are missing.
 
-use rusqlite::{Connection, OptionalExtension, params};
+use rusqlite::{Connection, params};
 
 use super::*;
+use crate::util::has_id;
 
-fn exists(conn: &Connection, table: &str, id: &str) -> Result<bool> {
-    Ok(conn
-        .query_row(
-            &format!("SELECT 1 FROM {table} WHERE id = ?1"),
-            [id],
-            |_| Ok(()),
-        )
-        .optional()?
-        .is_some())
-}
 
 pub(super) fn seed_if_missing(conn: &Connection, seed: KnowledgeSeed) -> Result<()> {
     for g in &seed.groups {
-        if exists(conn, "categories", &g.category_id)? {
+        if has_id(conn, "categories", &g.category_id)? {
             conn.execute(
                 "INSERT OR IGNORE INTO groups (id, category_id, name, description, created_at, updated_at)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -27,16 +18,16 @@ pub(super) fn seed_if_missing(conn: &Connection, seed: KnowledgeSeed) -> Result<
     }
     let mut inserted_pages = Vec::new();
     for p in &seed.pages {
-        if !exists(conn, "categories", &p.category_id)? {
+        if !has_id(conn, "categories", &p.category_id)? {
             continue;
         }
         // A missing group or task only loses the reference, not the page.
         let group_id = match &p.group_id {
-            Some(g) if exists(conn, "groups", g)? => Some(g.clone()),
+            Some(g) if has_id(conn, "groups", g)? => Some(g.clone()),
             _ => None,
         };
         let origin_task_id = match &p.origin_task_id {
-            Some(t) if exists(conn, "tasks", t)? => Some(t.clone()),
+            Some(t) if has_id(conn, "tasks", t)? => Some(t.clone()),
             _ => None,
         };
         // A page with the same title in the category (other id) is left alone.
@@ -65,7 +56,7 @@ pub(super) fn seed_if_missing(conn: &Connection, seed: KnowledgeSeed) -> Result<
         }
     }
     for v in &seed.versions {
-        if exists(conn, "pages", &v.page_id)? {
+        if has_id(conn, "pages", &v.page_id)? {
             conn.execute(
                 "INSERT OR IGNORE INTO page_versions (page_id, day, snapshot) VALUES (?1, ?2, ?3)",
                 params![v.page_id, v.date, serde_json::to_string(&v.snapshot)?],
@@ -73,7 +64,7 @@ pub(super) fn seed_if_missing(conn: &Connection, seed: KnowledgeSeed) -> Result<
         }
     }
     for l in &seed.task_page_links {
-        if exists(conn, "tasks", &l.task_id)? && exists(conn, "pages", &l.page_id)? {
+        if has_id(conn, "tasks", &l.task_id)? && has_id(conn, "pages", &l.page_id)? {
             conn.execute(
                 "INSERT OR IGNORE INTO task_page_links (id, task_id, page_id, created_at)
                  VALUES (?1, ?2, ?3, ?4)",

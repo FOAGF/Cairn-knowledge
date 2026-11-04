@@ -13,6 +13,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
+use chrono::NaiveDate;
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_appender::rolling::{Builder, Rotation};
 use tracing_subscriber::{EnvFilter, Registry, fmt, prelude::*, reload};
@@ -157,49 +158,20 @@ pub fn one_line(text: &str, max: usize) -> String {
 
 // ------------------------------------------------------------------------------ the files
 
-fn today() -> chrono_date::Date {
-    chrono_date::today()
-}
-
-/// A tiny civil-date helper so this crate needs no date library: log files are named by UTC day.
-mod chrono_date {
-    pub type Date = i64; // days since 1970-01-01
-
-    pub fn today() -> Date {
-        let secs = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs())
-            .unwrap_or(0);
-        (secs / 86_400) as i64
-    }
-
-    /// `YYYY-MM-DD` to days since the epoch (Howard Hinnant's algorithm).
-    pub fn parse(s: &str) -> Option<Date> {
-        let mut it = s.split('-');
-        let y: i64 = it.next()?.parse().ok()?;
-        let m: i64 = it.next()?.parse().ok()?;
-        let d: i64 = it.next()?.parse().ok()?;
-        if it.next().is_some() || !(1..=12).contains(&m) || !(1..=31).contains(&d) {
-            return None;
-        }
-        let y = if m <= 2 { y - 1 } else { y };
-        let era = y.div_euclid(400);
-        let yoe = y - era * 400;
-        let doy = (153 * (if m > 2 { m - 3 } else { m + 9 }) + 2) / 5 + d - 1;
-        let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-        Some(era * 146_097 + doe - 719_468)
-    }
+/// Log files are named by UTC day (`Rotation::DAILY`).
+fn today() -> NaiveDate {
+    chrono::Utc::now().date_naive()
 }
 
 /// `cairn.2026-10-16.log` to its day; other files in the folder are not ours to delete.
-fn file_day(name: &str) -> Option<chrono_date::Date> {
+fn file_day(name: &str) -> Option<NaiveDate> {
     let rest = name.strip_prefix(FILE_PREFIX)?.strip_prefix('.')?;
     let day = rest.strip_suffix(FILE_SUFFIX)?.strip_suffix('.')?;
-    chrono_date::parse(day)
+    NaiveDate::parse_from_str(day, "%Y-%m-%d").ok()
 }
 
 /// Our log files with their day and size, oldest first.
-fn log_files(dir: &Path) -> Vec<(chrono_date::Date, u64, PathBuf)> {
+fn log_files(dir: &Path) -> Vec<(NaiveDate, u64, PathBuf)> {
     let mut files: Vec<_> = std::fs::read_dir(dir)
         .into_iter()
         .flatten()
@@ -222,10 +194,10 @@ pub fn folder_bytes(dir: &Path) -> u64 {
 /// NFR-SEC-3: deletes files older than `keep_days` days (today and the days before make
 /// `keep_days`) and then the oldest files while the folder holds more than `max_bytes`. The newest
 /// file stays, since the app may be writing to it.
-fn prune(dir: &Path, today: chrono_date::Date, keep_days: i64, max_bytes: u64) {
+fn prune(dir: &Path, today: NaiveDate, keep_days: i64, max_bytes: u64) {
     let mut files = log_files(dir);
     files.retain(|(day, _, path)| {
-        if *day <= today - keep_days {
+        if *day <= today - chrono::Duration::days(keep_days) {
             if let Err(e) = std::fs::remove_file(path) {
                 tracing::warn!(error = %e, "could not delete an old log file");
                 return true;
@@ -321,11 +293,9 @@ mod tests {
     }
 
     #[test]
-    fn civil_dates_round_trip() {
-        assert_eq!(chrono_date::parse("1970-01-01"), Some(0));
-        assert_eq!(chrono_date::parse("2026-10-16"), Some(20_742));
-        assert_eq!(chrono_date::parse("2026-13-01"), None);
-        assert_eq!(file_day("cairn.2026-10-16.log"), Some(20_742));
+    fn file_names_give_their_day() {
+        assert_eq!(file_day("cairn.2026-10-16.log"), NaiveDate::from_ymd_opt(2026, 10, 16));
+        assert_eq!(file_day("cairn.2026-13-01.log"), None);
         assert_eq!(file_day("cairn.log"), None);
         assert_eq!(file_day("other.2026-10-16.log"), None);
     }
@@ -333,7 +303,7 @@ mod tests {
     #[test]
     fn prune_keeps_seven_days() {
         let dir = tempfile::tempdir().unwrap();
-        let today = chrono_date::parse("2026-10-16").unwrap();
+        let today = NaiveDate::from_ymd_opt(2026, 10, 16).unwrap();
         for d in ["09", "10", "11", "15", "16"] {
             touch(dir.path(), &format!("cairn.2026-10-{d}.log"), 10);
         }
@@ -355,7 +325,7 @@ mod tests {
     #[test]
     fn prune_drops_the_oldest_over_the_size_limit() {
         let dir = tempfile::tempdir().unwrap();
-        let today = chrono_date::parse("2026-10-16").unwrap();
+        let today = NaiveDate::from_ymd_opt(2026, 10, 16).unwrap();
         touch(dir.path(), "cairn.2026-10-14.log", 400);
         touch(dir.path(), "cairn.2026-10-15.log", 400);
         touch(dir.path(), "cairn.2026-10-16.log", 400);

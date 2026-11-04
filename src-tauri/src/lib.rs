@@ -145,7 +145,6 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             //
             // Search by meaning (M4)
             commands::search::search_hybrid,
-            commands::search::find_similar_pages,
             commands::search::get_index_progress,
             //
             // Creation flows (M5): conversations, files in the chat, checks, merge, task drafts
@@ -483,10 +482,7 @@ fn dev_script_env(app: tauri::AppHandle) {
 #[specta::specta]
 async fn automation_report(line: String) -> Result<(), ApiError> {
     use std::io::Write;
-    let refuse = |message: &str| ApiError {
-        kind: "invalid".into(),
-        message: message.into(),
-    };
+    let refuse = |message: &str| ApiError::invalid(message);
     if !automation_on() {
         return Err(refuse("Automation is off (CAIRN_AUTOMATION=1 is not set)."));
     }

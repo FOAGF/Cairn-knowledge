@@ -30,8 +30,6 @@
 //! uses. For a keyword hit, the words of the query are looked up in the item's own text (title,
 //! its pieces, key, labels, tags, source info) with `search::words_in`; when a word (any word, in
 //! the any-word retry) is found nowhere there, the hit is glossary-only.
-//!
-//! Owned by the M6 answers agent.
 
 use std::collections::{HashMap, HashSet};
 

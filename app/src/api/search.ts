@@ -1,11 +1,10 @@
 // Keyword search over pages and tasks (FR-KN-UI-2; NFR-I18N-4 Chinese) and spelling/grammar
 // checks with native Harper (FR-KN-ED-6..8). Search results refresh on DataChanged { search }.
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect } from 'react'
+import { useCallback } from 'react'
 import {
   commands,
   events,
-  type HybridResult,
   type IndexProgress,
   type LintHit,
   type LintOptions,
@@ -14,7 +13,7 @@ import {
   type SearchQuery,
   type SidecarStatus,
 } from './bindings'
-import { isTauri } from './client'
+import { isTauri, type TauriEvent, useTauriEvent } from './client'
 
 export type { LintCategory, LintHit, LintOptions, SearchHit, SearchKind, SearchQuery } from './bindings'
 export type { HybridResult, IndexProgress, MatchedBy, MeaningStatus, SidecarStatus, WorkerStatus } from './bindings'
@@ -36,7 +35,7 @@ export function useSearch(query: SearchQuery) {
   return { ...result, hits: enabled ? (result.data ?? EMPTY_HITS) : EMPTY_HITS }
 }
 
-/** For code outside React (command palette actions, fake assistant). */
+/** For code outside React (command palette actions). */
 export function searchOnce(query: SearchQuery): Promise<SearchHit[]> {
   return query.text.trim() ? commands.search(query) : Promise.resolve(EMPTY_HITS)
 }
@@ -62,9 +61,6 @@ export function rebuildSearchIndex() {
  */
 export const rankedByMeaning = (meaning: MeaningStatus) => meaning.state !== 'unavailable' && meaning.state !== 'not_installed'
 
-/** Cosine similarity from which a page counts as a likely duplicate (M0-b threshold, 256 dimensions). */
-export const LIKELY_DUPLICATE_SCORE = 0.87
-
 /**
  * Keyword + meaning search merged (FR-RAG-SR-1, -4, -5). Slower than `useSearch` (the query is
  * embedded first), so callers enable it only after a pause in typing. `data` is undefined until
@@ -77,11 +73,6 @@ export function useHybridSearch(query: SearchQuery, enabled: boolean) {
     queryFn: () => commands.searchHybrid(query),
     enabled: enabled && query.text.trim().length > 0,
   })
-}
-
-/** Pages closest in meaning to a saved page (*Find similar pages*, FR-RAG-SR-5). */
-export function findSimilarPages(pageId: string, limit = 10): Promise<HybridResult> {
-  return commands.findSimilarPages(pageId, limit)
 }
 
 /** Index progress for Settings › Search: the current value, then every `IndexProgress` event. */
@@ -98,7 +89,7 @@ export function useSidecarStatus(): SidecarStatus | undefined {
 export function useEventQuery<T>(
   queryKey: string[],
   read: () => Promise<T>,
-  event: { listen: (handler: (e: { payload: T }) => void) => Promise<() => void> },
+  event: TauriEvent<T>,
 ): T | undefined {
   const client = useQueryClient()
   const { data } = useQuery({
@@ -109,17 +100,7 @@ export function useEventQuery<T>(
     staleTime: 0,
   })
   const key = queryKey.join('/')
-  useEffect(() => {
-    if (!isTauri()) return
-    let unlisten: (() => void) | undefined
-    let cancelled = false
-    void event
-      .listen(({ payload }) => client.setQueryData(key.split('/'), payload))
-      .then((fn) => (cancelled ? fn() : (unlisten = fn)))
-    return () => {
-      cancelled = true
-      unlisten?.()
-    }
-  }, [client, key, event])
+  const onEvent = useCallback((payload: T) => client.setQueryData(key.split('/'), payload), [client, key])
+  useTauriEvent(event, onEvent)
   return data
 }

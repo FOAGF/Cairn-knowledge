@@ -8,7 +8,7 @@ use cairn_core::glossary::{
 };
 use tauri::{AppHandle, State};
 
-use crate::error::{ApiError, ApiResult};
+use crate::error::ApiResult;
 use crate::events::{Entity, emit_changed};
 use crate::state::AppState;
 
@@ -82,12 +82,7 @@ pub async fn dev_seed_glossary(
     state: State<'_, AppState>,
     seed: Vec<GlossarySeed>,
 ) -> ApiResult<()> {
-    if !cfg!(debug_assertions) {
-        return Err(ApiError {
-            kind: "invalid".into(),
-            message: "Demo data is only available in development builds.".into(),
-        });
-    }
+    crate::error::dev_only()?;
     state
         .with_db(move |db| glossary::dev_seed(db, seed))
         .await?;

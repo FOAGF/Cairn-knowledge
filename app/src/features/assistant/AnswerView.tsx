@@ -6,7 +6,7 @@ import { ChevronRight, CircleCheckBig, FileText, Globe, Search, TriangleAlert } 
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
-import { errorMessage } from '@/api/client'
+import { toastError } from '@/api/client'
 import { openUrl, searchAllCategories, type AnswerBasis, type SourceRef } from '@/api/assistant'
 import { type ChatMessage, updateMessage } from '@/api/conversations'
 import { MarkdownView } from '@/components/shared/MarkdownView'
@@ -38,7 +38,7 @@ function SourceLink({ source, className, children }: { source: SourceRef; classN
   if (source.kind === 'web' && source.url) {
     const url = source.url
     // Never navigate the window (D-43): the system browser opens it.
-    return <button type="button" onClick={() => void openUrl(url).catch((e) => toast.error(errorMessage(e)))} className={className}>{children}</button>
+    return <button type="button" onClick={() => void openUrl(url).catch(toastError)} className={className}>{children}</button>
   }
   return <span className={className}>{children}</span>
 }
@@ -120,7 +120,7 @@ export function AnswerView({ message }: { message: ChatMessage }) {
   const widen = () => {
     setSearching(true)
     searchAllCategories(message.id)
-      .catch((e) => toast.error(errorMessage(e)))
+      .catch(toastError)
       .finally(() => setSearching(false))
   }
 
@@ -133,7 +133,7 @@ export function AnswerView({ message }: { message: ChatMessage }) {
     // A link the model wrote itself: the system browser opens it, and without a web search it is no source.
     if (/^https?:\/\//i.test(href))
       return (
-        <button type="button" className="text-primary underline underline-offset-2" onClick={() => void openUrl(href).catch((e) => toast.error(errorMessage(e)))}>
+        <button type="button" className="text-primary underline underline-offset-2" onClick={() => void openUrl(href).catch(toastError)}>
           {children}
         </button>
       )

@@ -1,8 +1,9 @@
-import { useEffect } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
 import { useSettingsQuery } from '@/api/settings'
 
 type Theme = 'system' | 'light' | 'dark'
 const THEME_KEY = 'cairn-theme'
+const DARK_QUERY = '(prefers-color-scheme: dark)'
 
 /** The last theme seen, so the first paint does not flash light/dark before settings load. */
 function lastTheme(): Theme {
@@ -32,7 +33,7 @@ export function ThemeSync() {
     }
   }, [theme])
   useEffect(() => {
-    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    const media = window.matchMedia(DARK_QUERY)
     const apply = () => {
       const dark = theme === 'dark' || (theme === 'system' && media.matches)
       document.documentElement.classList.toggle('dark', dark)
@@ -44,7 +45,17 @@ export function ThemeSync() {
   return null
 }
 
+function watchSystemTheme(onChange: () => void) {
+  const media = window.matchMedia(DARK_QUERY)
+  media.addEventListener('change', onChange)
+  return () => media.removeEventListener('change', onChange)
+}
+
+const systemIsDark = () => window.matchMedia(DARK_QUERY).matches
+
+/** Whether the window is dark now; follows the OS while the theme is "system". */
 export function useIsDark() {
   const theme = useTheme()
-  return theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+  const systemDark = useSyncExternalStore(watchSystemTheme, systemIsDark)
+  return theme === 'dark' || (theme === 'system' && systemDark)
 }

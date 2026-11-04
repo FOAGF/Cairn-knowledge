@@ -10,7 +10,7 @@
 //! Text is cleaned for the model: page mentions `[Title](page:<id>)` become their title, images
 //! and attachment links are dropped, code blocks are kept as plain text.
 //!
-//! Owned by the M4 search-core agent. Pure functions: no database.
+//! Pure functions: no database.
 
 /// Aim for pieces about this long (in estimated tokens).
 pub const TARGET_TOKENS: usize = 350;
@@ -30,7 +30,7 @@ use crate::search::{is_han, strip_markdown};
 const PATH_SEP: &str = " › ";
 
 /// Cost of one character in quarter tokens: Han characters 4, anything else 1.
-fn quarter_cost(c: char) -> usize {
+pub(crate) fn quarter_cost(c: char) -> usize {
     if is_han(c) { 4 } else { 1 }
 }
 

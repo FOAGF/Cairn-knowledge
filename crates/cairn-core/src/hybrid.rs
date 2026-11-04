@@ -4,8 +4,6 @@
 //! `sum(1 / (K + rank))` over the lists it appears in (rank from 1), so no score tuning is needed.
 //! The snippet is the keyword snippet when the item matched by keyword (it shows the matched
 //! words), otherwise a short excerpt of the best piece.
-//!
-//! Owned by the M4 search-core agent.
 
 use std::collections::HashMap;
 

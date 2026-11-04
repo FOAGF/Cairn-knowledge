@@ -30,7 +30,7 @@ function DataFolderDialog({ open, onOpenChange, current }: { open: boolean; onOp
           <DialogTitle>{t.settings.dataFolderDialog.title}</DialogTitle>
           <DialogDescription>{t.settings.dataFolderDialog.description}</DialogDescription>
         </DialogHeader>
-        <Input autoFocus value={folder} placeholder={t.settings.dataFolderDialog.placeholder} onChange={(e) => setFolder(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} />
+        <Input autoFocus value={folder} placeholder={t.settings.dataFolderDialog.placeholder} onChange={(e) => setFolder(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && submit()} />
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>{t.common.cancel}</Button>
           <Button onClick={submit} disabled={save.isPending || !folder.trim()}>{t.common.save}</Button>

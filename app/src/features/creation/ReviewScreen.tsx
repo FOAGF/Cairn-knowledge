@@ -48,6 +48,8 @@ export function ReviewScreen() {
 
   // The "New group" dialog: null when closed, else the name it starts with.
   const [groupDialog, setGroupDialog] = useState<string | null>(null)
+  // Controlled, so *Change* can open it: Radix ignores a scripted click once a mouse has opened it.
+  const [groupListOpen, setGroupListOpen] = useState(false)
   const [keptSeparate, setKeptSeparate] = useState(false)
   const [diverse, setDiverse] = useState<TopicResult | null>(null)
   // FR-KN-DV-3: the topic being kept; the rewritten draft streams into the editor under `streamId`.
@@ -255,7 +257,7 @@ export function ReviewScreen() {
               </div>
               <div className="space-y-1.5">
                 <Label>{t.common.group}</Label>
-                <Select value={groupValue} onValueChange={pickGroup}>
+                <Select value={groupValue} onValueChange={pickGroup} open={groupListOpen} onOpenChange={setGroupListOpen}>
                   <SelectTrigger id="group-field" className="w-full"><SelectValue placeholder={t.creation.review.noGroup} /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">{t.creation.review.noGroup}</SelectItem>
@@ -330,7 +332,7 @@ export function ReviewScreen() {
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <Button size="sm" onClick={() => (suggestion.kind === 'existing' ? pickGroup(suggestion.groupId) : takeNewGroup(suggestion.name))}>{t.creation.checks.accept}</Button>
-                  <Button size="sm" variant="outline" onClick={() => document.getElementById('group-field')?.click()}>{t.common.change}</Button>
+                  <Button size="sm" variant="outline" onClick={() => setGroupListOpen(true)}>{t.common.change}</Button>
                   <Button size="sm" variant="outline" onClick={() => setGroupDialog('')}>{t.creation.review.newGroup}</Button>
                 </div>
               </div>

@@ -49,7 +49,6 @@ class Client:
     def __init__(self, role, extra_env=None):
         env = clean_env()
         env.update(extra_env or {})
-        self.t0 = time.time()
         # like `python -I -m cairn_sidecar`, but always this checkout's package (an editable install may point elsewhere)
         launch = f"import sys; sys.path.insert(0, {ROOT!r}); from cairn_sidecar.__main__ import main; sys.exit(main())"
         self.proc = subprocess.Popen([sys.executable, "-I", "-c", launch, "--role", role],
@@ -58,14 +57,12 @@ class Client:
         self.msgs = queue.Queue()
         self.stderr = []
         self.seq = 0
-        self.arrivals = []  # every message, in order, with a time
         threading.Thread(target=self._read, daemon=True).start()
         threading.Thread(target=lambda: self.stderr.extend(self.proc.stderr), daemon=True).start()
 
     def _read(self):
         for line in self.proc.stdout:
             m = json.loads(line)
-            self.arrivals.append((time.time(), m))
             self.msgs.put(m)
 
     def send(self, method, params=None, notify=False):

@@ -12,13 +12,11 @@
 //!
 //! Vectors are little-endian float32, normalised, [`IndexModel::dims`] long; the same layout the
 //! sidecar sends as base64 (`sidecar/PROTOCOL.md`).
-//!
-//! Owned by the M4 search-core agent.
 
 use std::collections::HashMap;
 
 use rusqlite::types::{Value, ValueRef};
-use rusqlite::{Connection, params, params_from_iter};
+use rusqlite::{Connection, OptionalExtension, params, params_from_iter};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use specta::Type;
@@ -141,20 +139,12 @@ fn kind_of(s: &str) -> SearchKind {
     }
 }
 
-fn not_found<T>(r: rusqlite::Result<T>) -> Result<Option<T>> {
-    match r {
-        Ok(v) => Ok(Some(v)),
-        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-        Err(e) => Err(e.into()),
-    }
-}
-
 fn meta(conn: &Connection, key: &str) -> Result<Option<String>> {
-    not_found(
-        conn.query_row("SELECT value FROM vector_meta WHERE key = ?1", [key], |r| {
+    Ok(conn
+        .query_row("SELECT value FROM vector_meta WHERE key = ?1", [key], |r| {
             r.get::<_, String>(0)
-        }),
-    )
+        })
+        .optional()?)
 }
 
 fn set_meta(conn: &Connection, key: &str, value: &str) -> Result<()> {
@@ -193,17 +183,19 @@ fn load_pieces(
 ) -> Result<Option<(String, String, Vec<Piece>)>> {
     match kind {
         SearchKind::Page => {
-            let row = not_found(conn.query_row(
-                "SELECT title, body, category_id FROM pages WHERE id = ?1",
-                [id],
-                |r| {
-                    Ok((
-                        r.get::<_, String>(0)?,
-                        r.get::<_, String>(1)?,
-                        r.get::<_, String>(2)?,
-                    ))
-                },
-            ))?;
+            let row = conn
+                .query_row(
+                    "SELECT title, body, category_id FROM pages WHERE id = ?1",
+                    [id],
+                    |r| {
+                        Ok((
+                            r.get::<_, String>(0)?,
+                            r.get::<_, String>(1)?,
+                            r.get::<_, String>(2)?,
+                        ))
+                    },
+                )
+                .optional()?;
             Ok(row.map(|(title, body, category)| {
                 let mut pieces = chunking::split_page(&body);
                 if pieces.is_empty() {
@@ -231,19 +223,21 @@ fn load_pieces(
             },
         )),
         SearchKind::Task => {
-            let row = not_found(conn.query_row(
-                "SELECT key, title, status, description, category_id FROM tasks WHERE id = ?1",
-                [id],
-                |r| {
-                    Ok((
-                        r.get::<_, String>(0)?,
-                        r.get::<_, String>(1)?,
-                        r.get::<_, String>(2)?,
-                        r.get::<_, String>(3)?,
-                        r.get::<_, String>(4)?,
-                    ))
-                },
-            ))?;
+            let row = conn
+                .query_row(
+                    "SELECT key, title, status, description, category_id FROM tasks WHERE id = ?1",
+                    [id],
+                    |r| {
+                        Ok((
+                            r.get::<_, String>(0)?,
+                            r.get::<_, String>(1)?,
+                            r.get::<_, String>(2)?,
+                            r.get::<_, String>(3)?,
+                            r.get::<_, String>(4)?,
+                        ))
+                    },
+                )
+                .optional()?;
             let Some((key, title, status, desc, category)) = row else {
                 return Ok(None);
             };
@@ -450,6 +444,33 @@ pub fn next_jobs(conn: &Connection, limit: u32) -> Result<Vec<EmbedJob>> {
                 title: r.title,
                 text: embed_text(&r.heading, &r.text, &as_strs(&lines)),
             }
+        })
+        .collect())
+}
+
+/// The `(title, text)` to embed for each piece of a page that isn't saved yet (a draft in
+/// `category_id`), exactly as [`next_jobs`] gives them for a saved page, glossary lines included
+/// (FR-KN-DU-1, FR-RAG-IX-3), so the duplicate check compares like with like. An empty body is
+/// one piece of the title alone, as for a saved page.
+pub fn draft_pieces(
+    conn: &Connection,
+    category_id: &str,
+    title: &str,
+    body: &str,
+) -> Result<Vec<(String, String)>> {
+    let mut pieces = chunking::split_page(body);
+    if pieces.is_empty() {
+        pieces.push(Piece {
+            heading: String::new(),
+            text: String::new(),
+        });
+    }
+    let mut glossary = Glossary::load(conn)?;
+    Ok(pieces
+        .iter()
+        .map(|p| {
+            let lines = piece_terms(&mut glossary, SearchKind::Page, category_id, &p.text);
+            (title.to_string(), embed_text(&p.heading, &p.text, &as_strs(&lines)))
         })
         .collect())
 }
@@ -723,8 +744,10 @@ pub fn to_blob(v: &[f32]) -> Vec<u8> {
 
 /// The inverse of [`to_blob`]. Trailing bytes that don't make a whole float are ignored.
 pub fn from_blob(b: &[u8]) -> Vec<f32> {
-    b.chunks_exact(4)
-        .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+    b.as_chunks::<4>()
+        .0
+        .iter()
+        .map(|c| f32::from_le_bytes(*c))
         .collect()
 }
 
@@ -743,7 +766,7 @@ mod tests {
 
     /// A normalised vector pointing along axis `i`, plus `mix` along axis `j`.
     fn axis(i: usize, j: usize, mix: f32) -> Vec<f32> {
-        let mut v = vec![0.0; DIMS];
+        let mut v = [0.0; DIMS];
         v[i] = 1.0;
         v[j] += mix;
         let n = v.iter().map(|x| x * x).sum::<f32>().sqrt();
@@ -784,6 +807,41 @@ mod tests {
         )
         .unwrap();
         index_item(c, SearchKind::Task, id).unwrap();
+    }
+
+    /// FR-KN-DU-1: the duplicate check embeds a draft exactly as the indexer embeds the same page once
+    /// saved, glossary lines included (FR-RAG-IX-3).
+    #[test]
+    fn a_draft_is_embedded_as_its_saved_page() {
+        let (_d, mut db) = db();
+        add_category(db.conn(), "c1", "ONE");
+        crate::glossary::create(
+            &mut db,
+            crate::glossary::NewGlossaryEntry {
+                category_id: None,
+                term: "MMU".into(),
+                other_names: None,
+                description: Some("mobile manufacturing unit".into()),
+            },
+        )
+        .unwrap();
+        let body = "# Hoses\n\nCheck the MMU hoses.\n\n# Other\n\nNothing else.";
+        add_page(db.conn(), "1", "c1", "Pre-start", body);
+        let draft = draft_pieces(db.conn(), "c1", "Pre-start", body).unwrap();
+        // Pages come first in the queue, in reading order.
+        let saved: Vec<(String, String)> = next_jobs(db.conn(), 100)
+            .unwrap()
+            .into_iter()
+            .take(draft.len())
+            .map(|j| (j.title, j.text))
+            .collect();
+        assert_eq!(draft, saved);
+        assert!(draft.iter().any(|(_, text)| text.contains("mobile manufacturing unit")));
+        // An empty draft is its title alone.
+        assert_eq!(
+            draft_pieces(db.conn(), "c1", "Empty", "").unwrap(),
+            [("Empty".to_string(), String::new())]
+        );
     }
 
     /// Embeds every waiting piece with `f(job)`.

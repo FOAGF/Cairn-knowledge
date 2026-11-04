@@ -1,8 +1,9 @@
 //! Task links (FR-TASK-LN-1, -2, -4).
 
-use rusqlite::{Connection, OptionalExtension, Row, params};
+use rusqlite::{Connection, Row, params};
 
 use super::*;
+use crate::util::exists;
 
 fn link_from_row(r: &Row) -> rusqlite::Result<TaskLink> {
     let ty: String = r.get(1)?;
@@ -27,10 +28,6 @@ pub(super) fn links(conn: &Connection, task_id: &str) -> Result<Vec<TaskLink>> {
         .query_map([&id], link_from_row)?
         .collect::<rusqlite::Result<Vec<_>>>()?;
     Ok(rows)
-}
-
-fn exists(conn: &Connection, sql: &str, args: impl rusqlite::Params) -> Result<bool> {
-    Ok(conn.query_row(sql, args, |_| Ok(())).optional()?.is_some())
 }
 
 pub(super) fn add_link(

@@ -23,8 +23,6 @@
 //! The first step is on the message before any model call, and one step stays active until the
 //! answer, the find list or the proposal is stored on it, so the UI never sees a finished-looking
 //! message in between.
-//!
-//! Owned by the M6 answers agent (the action branch by the actions agent).
 
 use std::sync::Arc;
 
@@ -44,22 +42,22 @@ use cairn_core::assistant::parts::{AnswerBasis, AnswerPart, FindPart, SourceKind
 use cairn_core::assistant::plan::{self, Plan, PlanFilters, PlanCategory, RequestKind};
 use cairn_core::assistant::references;
 use cairn_core::assistant::retrieve::{self, RelevanceRule, Retrieval, Retrieved};
-use cairn_core::checks::{self, RawTerm};
+use cairn_core::checks;
 use cairn_core::chunking::estimate_tokens;
 use cairn_core::conversations::{
     self, ChatAttachment, ChatMessage, ChatRole, Conversation, ConversationPatch, FileKind,
     MessagePatch, NewMessage,
 };
-use cairn_core::prompts::{self, LlmMessage, ModelRole, Role};
+use cairn_core::prompts::{self, LlmMessage, ModelRole};
 use cairn_core::providers::{self, CallTarget, ProviderKind, RequestFormat};
 use cairn_core::settings::{self, RELEVANCE_MARGIN, Settings};
-use cairn_core::{glossary, hybrid, categories, replies, sources};
+use cairn_core::{glossary, hybrid, categories, sources};
 
 use super::files::{
     self, ChatJobStarted, Ctx, Done, FileJob, Job, JobError, Progress, Uploads, Upload, plain,
     score_by_meaning, score_by_words, spawn_job,
 };
-use crate::error::ApiResult;
+use crate::error::{ApiError, ApiResult};
 use crate::events::{Entity, emit_changed};
 use crate::llm::{self, CallOptions, Jobs, Resolved};
 use crate::sidecar::Sidecars;
@@ -129,12 +127,10 @@ pub(crate) struct AskJob {
 pub async fn send_message(
     app: AppHandle,
     state: State<'_, AppState>,
-    sidecars: State<'_, Sidecars>,
     jobs: State<'_, Arc<Jobs>>,
     uploads: State<'_, Uploads>,
     input: SendInput,
 ) -> ApiResult<ChatJobStarted> {
-    let _ = &sidecars;
     let (job, started) = prepare_send(&state, &uploads, input).await?;
     emit_changed(&app, &[Entity::Conversations]);
     spawn_job(
@@ -154,22 +150,22 @@ pub(crate) async fn prepare_send(
 ) -> ApiResult<(AskJob, ChatJobStarted)> {
     let text = input.text.trim().to_string();
     if text.is_empty() && input.upload_id.is_none() {
-        return Err(files::invalid("Write a message or attach a file."));
+        return Err(ApiError::invalid("Write a message or attach a file."));
     }
     if input.web && input.upload_id.is_some() {
-        return Err(files::invalid(
+        return Err(ApiError::invalid(
             "A message with the web switch on can't carry a file: only what you type is sent.",
         ));
     }
     if input.web && text.is_empty() {
-        return Err(files::invalid("Write what to look up on the web."));
+        return Err(ApiError::invalid("Write what to look up on the web."));
     }
     let upload = match &input.upload_id {
         Some(id) => {
             let upload = uploads.take(id)?;
             if upload.written != u64::from(upload.size) {
                 files::remove_path(&upload.path);
-                return Err(files::invalid(
+                return Err(ApiError::invalid(
                     "The upload did not finish. Attach the file again.",
                 ));
             }
@@ -455,7 +451,7 @@ pub async fn widen_history(
     conversation_id: String,
     model_id: Option<String>,
 ) -> ApiResult<HistoryUsage> {
-    let (used, b, _) = history_numbers(&state, &sidecars, &conversation_id, model_id.clone()).await?;
+    let (_, b, _) = history_numbers(&state, &sidecars, &conversation_id, model_id.clone()).await?;
     let wider = history::widened(b.history, b.history_limit);
     if wider != b.configured {
         let id = conversation_id.clone();
@@ -474,7 +470,6 @@ pub async fn widen_history(
         emit_changed(&app, &[Entity::Conversations]);
     }
     let (used_now, b, _) = history_numbers(&state, &sidecars, &conversation_id, model_id).await?;
-    let _ = used;
     Ok(history::usage(used_now, b.history, b.history_limit))
 }
 
@@ -517,25 +512,9 @@ async fn json_reply(
     messages: Vec<LlmMessage>,
     opts: &CallOptions,
 ) -> ApiResult<Option<Map<String, Value>>> {
-    let first = ctx.complete(target, &messages, opts).await?;
-    if let Some(v) = replies::json_object(&first.text) {
-        return Ok(Some(v));
-    }
-    tracing::debug!("JSON reply unreadable, retrying once");
-    let mut again = messages;
-    again.push(LlmMessage::new(Role::Assistant, first.text));
-    again.push(prompts::check_retry()?);
-    let second = ctx.complete(target, &again, opts).await?;
-    Ok(replies::json_object(&second.text))
-}
-
-fn options(stream: Option<&str>, effort: Option<String>, timeout_s: u32) -> CallOptions {
-    CallOptions {
-        stream_id: stream.map(str::to_string),
-        timeout_s: Some(timeout_s),
-        max_tokens: None,
-        effort,
-        web_search: None,
+    match ctx.complete_json(target, &messages, opts).await {
+        Err(e) if e.kind == llm::UNREADABLE => Ok(None),
+        other => other.map(Some),
     }
 }
 
@@ -611,7 +590,7 @@ pub(crate) async fn ask_job(
     match planned.plan.kind {
         RequestKind::FileDraft => {
             let Some(file) = file_ref else {
-                return Err(plain(files::invalid("There is no file to draft a page from.")));
+                return Err(plain(ApiError::invalid("There is no file to draft a page from.")));
             };
             run.draft(file, progress).await
         }
@@ -619,7 +598,7 @@ pub(crate) async fn ask_job(
         RequestKind::Create | RequestKind::Change => {
             let gathered = run.gather(&planned, file_ref, progress).await?;
             let input = run.action_input(&planned, &gathered);
-            super::actions::run(ctx, job, &planned.plan, input, progress).await
+            super::actions::run(ctx, job, input, progress).await
         }
         RequestKind::Question | RequestKind::FileQuestion | RequestKind::General => {
             run.answer(&planned, file_ref, progress).await
@@ -639,7 +618,7 @@ async fn web_job(
     let today = formats::today_line(find::local_today());
     let messages = prompts::ask_web(&today, &job.text, true).map_err(|e| plain(e.into()))?;
     let searches = base.settings.web_searches_per_message;
-    let mut opts = options(Some(&job.assistant_id), job.effort.clone(), ANSWER_TIMEOUT_S);
+    let mut opts = CallOptions::new(Some(&job.assistant_id), job.effort.clone(), ANSWER_TIMEOUT_S);
     opts.web_search = Some(searches);
     let mut warning: Option<String> = None;
     let reply = match ctx.complete(&resolved.target, &messages, &opts).await {
@@ -659,7 +638,7 @@ async fn web_job(
             progress
                 .begin(ctx, format!("Answering with {}, without the web", resolved.model.label))
                 .await;
-            let again = options(Some(&job.assistant_id), job.effort.clone(), ANSWER_TIMEOUT_S);
+            let again = CallOptions::new(Some(&job.assistant_id), job.effort.clone(), ANSWER_TIMEOUT_S);
             let messages = prompts::ask_web(&today, &job.text, false).map_err(|e| plain(e.into()))?;
             ctx.complete(&resolved.target, &messages, &again)
                 .await
@@ -835,7 +814,7 @@ impl<'a> Run<'a> {
             .await
             .map_err(plain)?;
         let text = file.text.ok_or_else(|| {
-            plain(files::invalid(
+            plain(ApiError::invalid(
                 "The file's text is no longer kept. Attach the file again.",
             ))
         })?;
@@ -889,7 +868,7 @@ impl<'a> Run<'a> {
             message: &self.job.text,
         })
         .map_err(|e| plain(e.into()))?;
-        let opts = options(None, self.job.effort.clone(), PLAN_TIMEOUT_S);
+        let opts = CallOptions::new(None, self.job.effort.clone(), PLAN_TIMEOUT_S);
         let reply = json_reply(self.ctx, &self.resolved.target, messages, &opts)
             .await
             .map_err(plain)?;
@@ -1202,7 +1181,7 @@ impl<'a> Run<'a> {
             &g.history,
         )
         .map_err(|e| plain(e.into()))?;
-        let opts = options(
+        let opts = CallOptions::new(
             Some(&self.job.assistant_id),
             self.job.effort.clone(),
             ANSWER_TIMEOUT_S,
@@ -1303,7 +1282,7 @@ impl<'a> Run<'a> {
         let Ok(messages) = prompts::doc_terms(&file.name, &source, excerpts, &glossary_lines) else {
             return;
         };
-        let opts = options(None, None, PLAN_TIMEOUT_S);
+        let opts = CallOptions::new(None, None, PLAN_TIMEOUT_S);
         let reply = match json_reply(self.ctx, &default.target, messages, &opts).await {
             Ok(Some(r)) => r,
             Ok(None) => return,
@@ -1312,21 +1291,7 @@ impl<'a> Run<'a> {
                 return;
             }
         };
-        let raw: Vec<RawTerm> = reply
-            .get("terms")
-            .and_then(Value::as_array)
-            .into_iter()
-            .flatten()
-            .filter_map(Value::as_object)
-            .filter_map(|o| {
-                let text = |key: &str| o.get(key).and_then(Value::as_str).map(str::to_string);
-                Some(RawTerm {
-                    term: text("term")?,
-                    meaning: text("meaning").unwrap_or_default(),
-                    confidence: text("confidence").unwrap_or_default(),
-                })
-            })
-            .collect();
+        let raw = checks::raw_terms(reply.get("terms"));
         let (pid, doc) = (category_id.clone(), source);
         let filtered = self
             .ctx

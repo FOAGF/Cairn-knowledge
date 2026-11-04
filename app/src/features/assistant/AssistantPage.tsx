@@ -1,5 +1,5 @@
 import { toast } from 'sonner'
-import { errorMessage } from '@/api/client'
+import { errorMessage, toastError } from '@/api/client'
 import { createConversation, restoreConversation, updateConversation, useConversationList, useMessages } from '@/api/conversations'
 import { effortLevels, getModelsSnapshot, getProvidersSnapshot, useModels, useProviders, usableModels } from '@/api/providers'
 import { readSettings, useSettings } from '@/api/settings'
@@ -48,9 +48,9 @@ export default function AssistantPage() {
   const [draftEffort, setDraftEffort] = useState<EffortChoice>('unset')
   const modelId = (conv ? conv.modelId : draftModelId) ?? defaultModelId
   const effort: EffortChoice = conv ? (conv.effort ?? 'unset') : draftEffort
-  const setModelId = (id: string) => (conv ? void updateConversation(conv.id, { modelId: id }).catch((e) => toast.error(errorMessage(e))) : setDraftModelId(id))
+  const setModelId = (id: string) => (conv ? void updateConversation(conv.id, { modelId: id }).catch(toastError) : setDraftModelId(id))
   const setEffort = (e: EffortChoice) =>
-    conv ? void updateConversation(conv.id, { effort: e === 'unset' ? '' : e }).catch((err) => toast.error(errorMessage(err))) : setDraftEffort(e)
+    conv ? void updateConversation(conv.id, { effort: e === 'unset' ? '' : e }).catch(toastError) : setDraftEffort(e)
   const [web, setWeb] = useState(false) // 🌐, for the next message only (FR-LLM-AS-12)
   const [draftScope, setDraftScope] = useState<string[]>([]) // scope before the conversation exists
   // Models of disabled providers are not offered; fall back to the first enabled one.
@@ -120,7 +120,7 @@ export default function AssistantPage() {
         attached && fileEmpty
           ? sendFile(id, attached, text, model.id, draftCategoryId(conv ?? { scopeCategoryIds: draftScope }), effortToSend)
           : sendChatMessage(id, text, { modelId: model.id, effort: effortToSend, file: attached, web: useWeb })
-      void job.catch((e) => toast.error(errorMessage(e)))
+      void job.catch(toastError)
     } catch (e) {
       toast.error(errorMessage(e))
     }
@@ -141,9 +141,9 @@ export default function AssistantPage() {
     void createConversation({ title: 'New conversation', scopeCategoryIds: scope ? [scope] : [], modelId: usable?.id ?? null })
       .then(({ id }) => {
         navigate(`/assistant/${id}`, { replace: true })
-        if (usable) void sendChatMessage(id, q, { modelId: usable.id }).catch((e) => toast.error(errorMessage(e)))
+        if (usable) void sendChatMessage(id, q, { modelId: usable.id }).catch(toastError)
       })
-      .catch((e) => toast.error(errorMessage(e)))
+      .catch(toastError)
   }, [q, params, providersLoaded, navigate, setParams])
 
   // "Create from file" entries open the file picker once per ?attach value (StrictMode-safe; the
@@ -268,7 +268,7 @@ export default function AssistantPage() {
                 <Archive className="size-4 shrink-0" />
                 {a.archived(conv.expiresAt ? timeUntil(conv.expiresAt) : null)}
               </span>
-              <Button size="sm" onClick={() => void restoreConversation(conv.id).catch((e) => toast.error(errorMessage(e)))}>
+              <Button size="sm" onClick={() => void restoreConversation(conv.id).catch(toastError)}>
                 <ArchiveRestore /> {t.common.restore}
               </Button>
             </div>

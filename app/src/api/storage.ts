@@ -14,11 +14,11 @@
 // ends with a notice too, once a session; *Rescan* tries the watcher again.
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { useEffect, useSyncExternalStore } from 'react'
+import { useSyncExternalStore } from 'react'
 import { toast } from 'sonner'
 import { getT } from '@/i18n'
 import { commands, events, type KnowledgeMode, type KnowledgeProgress, type ScanSkip } from './bindings'
-import { errorMessage, isTauri, queryClient } from './client'
+import { queryClient, toastError, useTauriEvent } from './client'
 import { useSettings } from './settings'
 
 export type { BackupInfo, KnowledgeMode, KnowledgeProgress, KnowledgeStorage, NameClash, ScanSummary, SwitchBackup, SwitchBackups } from './bindings'
@@ -42,7 +42,7 @@ export async function chooseKnowledgeMode(mode: KnowledgeMode, root: string | nu
 
 /** *Open folder*: the knowledge folder (external mode, when it is there) or the switch backups, in the file manager. */
 export function openStorageFolder(which: 'knowledge' | 'switchBackups') {
-  return commands.openFolder(which).catch((e) => toast.error(errorMessage(e)))
+  return commands.openFolder(which).catch(toastError)
 }
 
 /** *Rescan*: reads the whole folder again in the background. */
@@ -200,16 +200,7 @@ function onProgress(p: KnowledgeProgress) {
 
 /** Collects `KnowledgeProgress` events. Mount once, in the app shell. */
 export function useKnowledgeProgressSync() {
-  useEffect(() => {
-    if (!isTauri()) return
-    let unlisten: (() => void) | undefined
-    let cancelled = false
-    void events.knowledgeProgress.listen(({ payload }) => onProgress(payload)).then((fn) => (cancelled ? fn() : (unlisten = fn)))
-    return () => {
-      cancelled = true
-      unlisten?.()
-    }
-  }, [])
+  useTauriEvent(events.knowledgeProgress, onProgress)
 }
 
 // ---------------------------------------------------------------- files in the folder

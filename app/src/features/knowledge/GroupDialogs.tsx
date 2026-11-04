@@ -67,42 +67,6 @@ export function GroupNameDialog({
   )
 }
 
-export function ConfirmDialog({
-  open,
-  title,
-  description,
-  confirmLabel,
-  onClose,
-  onConfirm,
-}: {
-  open: boolean
-  title: string
-  description: string
-  confirmLabel: string
-  onClose: () => void
-  onConfirm: () => void
-}) {
-  const t = useT()
-  return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            {t.common.cancel}
-          </Button>
-          <Button variant="destructive" onClick={onConfirm}>
-            {confirmLabel}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
 const TOP = '__top'
 
 /**

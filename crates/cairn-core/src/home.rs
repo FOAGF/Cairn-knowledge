@@ -6,7 +6,7 @@
 //! due filters (`tasks::query`). A task appears in the first Today group it fits: overdue, due
 //! today, in progress, blocked.
 
-use chrono::{Datelike, Duration, Local, NaiveDate, SecondsFormat, TimeZone, Utc};
+use chrono::{Datelike, Duration, Local, NaiveDate, TimeZone, Utc};
 use rusqlite::{Connection, params};
 use serde::Serialize;
 use specta::Type;
@@ -99,9 +99,7 @@ fn week_start_utc(today: NaiveDate) -> String {
             .earliest()
     });
     match local {
-        Some(t) => t
-            .with_timezone(&Utc)
-            .to_rfc3339_opts(SecondsFormat::Millis, true),
+        Some(t) => crate::util::iso(t.with_timezone(&Utc)),
         None => format!("{}T00:00:00.000Z", date_str(monday.date())),
     }
 }

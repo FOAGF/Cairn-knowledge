@@ -1,6 +1,6 @@
 use super::*;
 use crate::knowledge::{self, NewPage, PagePatch};
-use crate::categories::{self, NewCategory, CategoryColor};
+use crate::categories;
 use crate::search::{SearchHit, SearchQuery};
 use crate::tasks::{self, NewTask, TaskPatch};
 
@@ -15,17 +15,7 @@ fn env() -> Env {
     let dir = tempfile::tempdir().unwrap();
     let db = Db::open_at(dir.path()).unwrap();
     let mk = |name: &str, key: &str| {
-        categories::create(
-            db.conn(),
-            NewCategory {
-                name: name.into(),
-                key: key.into(),
-                description: String::new(),
-                color: CategoryColor::preset("blue"),
-            },
-        )
-        .unwrap()
-        .id
+        crate::test_util::category(db.conn(), name, key)
     };
     let a = mk("Alpha", "AAA");
     let b = mk("Beta", "BBB");
@@ -835,7 +825,7 @@ fn usage_lists_pages_then_tasks_newest_first_with_excerpts() {
     );
     let hit = &all.items[0];
     assert_eq!(hit.matched, "MMU-07");
-    assert_eq!(hit.after.chars().count() <= 51, true);
+    assert!(hit.after.chars().count() <= 51);
     assert!(hit.before.starts_with('…'));
     assert!(hit.before.ends_with("link before the "), "{:?}", hit.before);
     assert!(!hit.before.contains('*') && !hit.before.contains("page:abc"));

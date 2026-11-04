@@ -3,7 +3,7 @@
 // link); a page change shows its diff. Nothing is saved before *Confirm*. *Edit…* opens the normal
 // form, filled in: the new-task dialog; a comment or task change edited in the card, which
 // *Confirm* then saves; a page change as the page's unsaved changes in its editor.
-// Owned by the M6 actions agent; MessageView renders it for `message.proposal`.
+// MessageView renders it for `message.proposal`.
 import { ArrowRight, Check, ChevronDown, FilePen, ListChecks, Loader2, MessageSquare, Minus, Pencil, Plus, TriangleAlert, X } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
@@ -29,7 +29,7 @@ import { askBeforeEditing, holdPageEdit, pendingPath } from '../creation/pending
 import { TermSuggestions } from '../glossary/TermSuggestions'
 import { NewTaskDialog } from '../tasks/NewTaskDialog'
 import { DatePicker, LabelInput } from '../tasks/taskUi'
-import { PageDiff } from './PageDiff'
+import { PageDiff } from '@/components/shared/PageDiff'
 
 type Change<Op extends ProposedChange['op']> = Extract<ProposedChange, { op: Op }>
 

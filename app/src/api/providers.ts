@@ -67,19 +67,12 @@ export function useModelList(): ModelConfig[] {
   return useModels().data ?? EMPTY_MODELS
 }
 
-/** Models of providers that are switched on (FR-LLM-PV-6): what the pickers offer. */
-export function useUsableModels(): ModelConfig[] {
-  const providers = useProviderList()
-  const models = useModelList()
-  return usableModels(providers, models)
-}
-
 export function usableModels(providers: Provider[], models: ModelConfig[]): ModelConfig[] {
   const on = new Set(providers.filter((p) => p.enabled).map((p) => p.id))
   return models.filter((m) => on.has(m.providerId))
 }
 
-/** Cached lists for code outside React (the fake assistant). Empty if not loaded yet. */
+/** Cached lists for code outside React. Empty if not loaded yet. */
 export function getModelsSnapshot(): ModelConfig[] {
   return queryClient.getQueryData<ModelConfig[]>(modelsKey) ?? EMPTY_MODELS
 }

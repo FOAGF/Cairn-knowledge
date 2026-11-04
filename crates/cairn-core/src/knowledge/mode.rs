@@ -42,6 +42,7 @@ use specta::Type;
 use super::external::{self, scan};
 use crate::export::{self, archive_info};
 use crate::settings::{self, KnowledgeMode};
+use crate::util::exists;
 use crate::{CoreError, Db, Result, attachments, hooks};
 
 /// Where knowledge lives now (Settings › Data's *Knowledge storage* card, the mode chooser).
@@ -100,10 +101,8 @@ pub fn check_root(db: &Db, root: &str) -> Result<String> {
             "The knowledge folder can't be Cairn's data folder, inside it, or around it. Choose another folder.".into(),
         ));
     }
-    let probe = path.join(".cairn-write-test");
-    std::fs::write(&probe, b"")
+    crate::util::try_write(path)
         .map_err(|e| CoreError::Invalid(format!("Cairn can't write to that folder: {e}")))?;
-    let _ = std::fs::remove_file(probe);
     Ok(recorded_root(root))
 }
 
@@ -409,41 +408,14 @@ fn with_attached<T>(db: &mut Db, staged: &export::Staged, f: impl FnOnce(&rusqli
     out
 }
 
-fn exists(conn: &Connection, sql: &str, args: impl rusqlite::Params) -> Result<bool> {
-    Ok(conn.query_row(sql, args, |_| Ok(())).optional()?.is_some())
-}
-
-/// A group of the attached switch backup.
-struct GroupRow {
-    id: String,
-    category_id: String,
-    parent_id: Option<String>,
-    name: String,
-    description: String,
-    path: Option<String>,
-    created_at: String,
-    updated_at: String,
-}
-
 /// The attached backup's groups, parents before their groups (shorter paths first).
-fn staged_groups(tx: &Connection) -> Result<Vec<GroupRow>> {
-    let mut stmt = tx.prepare(
-        "SELECT id, category_id, parent_id, name, description, path, created_at, updated_at
-         FROM sb.groups ORDER BY length(path), path, id",
-    )?;
+fn staged_groups(tx: &Connection) -> Result<Vec<super::Group>> {
+    let mut stmt = tx.prepare(&format!(
+        "SELECT {} FROM sb.groups ORDER BY length(path), path, id",
+        super::GROUP_COLUMNS
+    ))?;
     let rows = stmt
-        .query_map([], |r| {
-            Ok(GroupRow {
-                id: r.get(0)?,
-                category_id: r.get(1)?,
-                parent_id: r.get(2)?,
-                name: r.get(3)?,
-                description: r.get(4)?,
-                path: r.get(5)?,
-                created_at: r.get(6)?,
-                updated_at: r.get(7)?,
-            })
-        })?
+        .query_map([], super::group_from_row)?
         .collect::<rusqlite::Result<Vec<_>>>()?;
     Ok(rows)
 }
@@ -529,18 +501,11 @@ fn enter_folder(db: &mut Db, root: &str, source: RestoreSource) -> Result<u32> {
             }
         },
     };
-    let entry = serde_json::to_string(&Entry {
+    let entry = Entry {
         root: root.to_string(),
         ok,
-    })?;
-    db.tx(|tx| {
-        tx.execute(
-            "INSERT INTO settings (key, value) VALUES (?1, ?2)
-             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            params![ENTRY_KEY, entry],
-        )?;
-        Ok(())
-    })?;
+    };
+    db.tx(|tx| settings::put(tx, ENTRY_KEY, entry))?;
     Ok(restored)
 }
 

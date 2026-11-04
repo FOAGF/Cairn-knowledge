@@ -20,8 +20,6 @@ use crate::state::AppState;
 
 /// Pages per `suggest-groups` call.
 const GROUP_BATCH: usize = 20;
-/// Blocks per `embed.documents` call (PROTOCOL.md "Concurrency").
-const EMBED_BATCH: usize = 8;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
@@ -40,12 +38,9 @@ pub struct TaskDraftInput {
 #[specta::specta]
 pub async fn draft_from_task(
     app: AppHandle,
-    state: State<'_, AppState>,
-    sidecars: State<'_, Sidecars>,
     jobs: State<'_, Arc<Jobs>>,
     input: TaskDraftInput,
 ) -> ApiResult<DraftText> {
-    let _ = (state, sidecars);
     let stream_id = input.stream_id.clone();
     jobs.run(stream_id, async move {
         let state = app.state::<AppState>();
@@ -84,13 +79,7 @@ pub async fn draft_from_task(
             &comments,
             &glossary_text,
         )?;
-        let opts = CallOptions {
-            stream_id: input.stream_id,
-            timeout_s: Some(300),
-            max_tokens: None,
-            effort: None,
-            web_search: None,
-        };
+        let opts = CallOptions::new(input.stream_id.as_deref(), None, 300);
         let reply = llm::complete(&app, &sidecars, &resolved.target, &messages, &opts).await?;
         Ok(DraftText::from_reply(&reply, &task.title))
     })
@@ -113,12 +102,9 @@ pub struct SuggestMergeInput {
 #[specta::specta]
 pub async fn suggest_merge(
     app: AppHandle,
-    state: State<'_, AppState>,
-    sidecars: State<'_, Sidecars>,
     jobs: State<'_, Arc<Jobs>>,
     input: SuggestMergeInput,
 ) -> ApiResult<DraftText> {
-    let _ = (state, sidecars);
     let stream_id = input.stream_id.clone();
     jobs.run(stream_id, async move {
         let state = app.state::<AppState>();
@@ -135,13 +121,7 @@ pub async fn suggest_merge(
             })
             .await?;
         let messages = prompts::suggest_merge(&page.body, &input.new_body, &glossary_text)?;
-        let opts = CallOptions {
-            stream_id: input.stream_id,
-            timeout_s: Some(300),
-            max_tokens: None,
-            effort: None,
-            web_search: None,
-        };
+        let opts = CallOptions::new(input.stream_id.as_deref(), None, 300);
         let reply = llm::complete(&app, &sidecars, &resolved.target, &messages, &opts).await?;
         // The existing page keeps its title, whatever the model wrote.
         let mut draft = DraftText::from_reply(&reply, &page.title);
@@ -170,14 +150,9 @@ pub struct MergeBlocksReport {
     pub by_meaning: bool,
 }
 
-/// Vectors of `texts` as documents, in batches of [`EMBED_BATCH`].
+/// Vectors of `texts` as documents (no titles).
 async fn embed_blocks(sidecars: &Sidecars, texts: &[String]) -> Result<Vec<Vec<f32>>, SidecarError> {
-    let mut vectors = Vec::with_capacity(texts.len());
-    for chunk in texts.chunks(EMBED_BATCH) {
-        let items = chunk.iter().map(|t| (String::new(), t.clone())).collect();
-        vectors.extend(sidecars.embed_documents(items).await?);
-    }
-    Ok(vectors)
+    sidecars.embed_all(texts.iter().map(|t| (String::new(), t.clone())).collect()).await
 }
 
 /// FR-KN-DU-3: where each new block starts (add / replace / ignore), by meaning. The thresholds
@@ -229,13 +204,10 @@ pub struct GroupSuggestions {
 #[specta::specta]
 pub async fn suggest_groups(
     app: AppHandle,
-    state: State<'_, AppState>,
-    sidecars: State<'_, Sidecars>,
     jobs: State<'_, Arc<Jobs>>,
     category_id: String,
     job_id: Option<String>,
 ) -> ApiResult<GroupSuggestions> {
-    let _ = (state, sidecars);
     jobs.run(job_id, async move {
         let state = app.state::<AppState>();
         let sidecars = app.state::<Sidecars>();
@@ -261,7 +233,7 @@ pub async fn suggest_groups(
                 Ok((category, groups, pages))
             })
             .await?;
-        let opts = CallOptions { stream_id: None, timeout_s: Some(120), max_tokens: None, effort: None, web_search: None };
+        let opts = CallOptions::new(None, None, 120);
         let mut proposals: Vec<GroupProposal> = Vec::new();
         let mut proposed: Vec<NewGroupName> = Vec::new();
         for chunk in pages.chunks(GROUP_BATCH) {

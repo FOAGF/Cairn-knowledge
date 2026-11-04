@@ -1,14 +1,12 @@
 //! The action branch end to end against the fake sidecar (`tests/fixtures/fake_sidecar.py`, its
 //! "M6 actions block") with a temporary data folder: no window, so no `check` call after a new page.
 
-use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use cairn_core::DataPaths;
 use cairn_core::assistant::formats::PiecePart;
 use cairn_core::assistant::parts::{LinkKind, Proposal};
-use cairn_core::assistant::plan::{PlanFilters, RequestKind};
 use cairn_core::conversations::{self, ChatRole, NewConversation, NewMessage};
 use cairn_core::knowledge::{NewPage, PagePatch};
 use cairn_core::categories::{NewCategory, CategoryColor};
@@ -32,23 +30,10 @@ struct Env {
     page: cairn_core::knowledge::Page,
 }
 
-fn fake_config() -> SidecarConfig {
-    SidecarConfig {
-        python: Some(PathBuf::from("python3")),
-        script_args: vec![
-            concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/fake_sidecar.py").into(),
-        ],
-        model_dir: Some(PathBuf::from("/nonexistent/model")),
-        idle_timeout: Duration::from_secs(60),
-        embed_threads: 1,
-        start_timeout: Duration::from_secs(10),
-    }
-}
-
 async fn setup() -> Env {
     let dir = tempfile::tempdir().unwrap();
     let state = AppState::open(DataPaths::new(dir.path()), Arc::new(MemoryStore::default()));
-    let sidecars = Sidecars::new(fake_config(), Arc::new(|_| {}));
+    let sidecars = Sidecars::new(SidecarConfig::fake(), Arc::new(|_| {}));
     let (conversation, model, category, tasks, page) = state
         .with_db(|db| {
             let secrets = MemoryStore::default();
@@ -186,14 +171,6 @@ impl Env {
             upload: None,
             chat_file_id: None,
         };
-        let plan = Plan {
-            kind: RequestKind::Change,
-            search: String::new(),
-            filters: PlanFilters::default(),
-            refs: vec![],
-            outside_scope: vec![],
-            intro: String::new(),
-        };
         let mut candidates: Vec<ItemRef> = self.tasks.iter().map(|t| ItemRef::task(&t.id)).collect();
         candidates.push(ItemRef::page(&self.page.id));
         let input = ActionInput {
@@ -205,7 +182,7 @@ impl Env {
             glossary: String::new(),
         };
         let mut progress = Progress::new(&assistant);
-        let done = run(&self.ctx(), &job, &plan, input, &mut progress).await;
+        let done = run(&self.ctx(), &job, input, &mut progress).await;
         let message = self.message(&assistant).await;
         Ran { done, message, progress }
     }

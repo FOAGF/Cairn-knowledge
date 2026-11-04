@@ -115,7 +115,8 @@ class Target:
             if self.format == "anthropic_messages":
                 # LiteLLM sends azure_ai/ to the Claude handler only when the name has "claude".
                 return "azure_ai" if "claude" in self.model.lower() else "anthropic_foundry"
-            return "openai" if "/openai/v1" in self.endpoint else "azure"
+            # Capitals don't matter, as in Rust's `providers::azure_style`.
+            return "openai" if "/openai/v1" in self.endpoint.lower() else "azure"
         if self.kind == "anthropic" or self.format == "anthropic_messages":
             return "anthropic"
         return "openai"  # openai_compatible, local and deepseek

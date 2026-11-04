@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
 import { Switch } from '@/components/ui/switch'
 import { rebuildSearchIndex, useIndexProgress, useSidecarStatus } from '@/api/search'
-import { errorMessage } from '@/api/client'
+import { toastError } from '@/api/client'
 import { useSearchModelStatus } from '@/api/searchModel'
 import { useT } from '@/i18n'
 import { SettingRow } from './parts'
@@ -32,7 +32,7 @@ export function SearchTab() {
     setRebuilding(true)
     rebuildSearchIndex()
       .then(() => toast.success(s.rebuilt))
-      .catch((e) => toast.error(errorMessage(e)))
+      .catch(toastError)
       .finally(() => setRebuilding(false))
   }
 

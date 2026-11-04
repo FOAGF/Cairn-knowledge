@@ -14,8 +14,6 @@
 //!   while no piece is waiting.
 //! - Progress is sent to the UI as the `IndexProgress` event, at most about once a second, and
 //!   once more at the end of a run. Open search results refresh once per run (`DataChanged { search }`).
-//!
-//! Owned by the M4 sidecar-link agent.
 
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -237,10 +235,7 @@ fn api_message(e: ApiError) -> String {
 }
 
 fn sidecar_message(e: SidecarError) -> String {
-    match e.hint {
-        Some(h) if !h.is_empty() => format!("{} ({h})", e.message),
-        _ => e.message,
-    }
+    e.detail()
 }
 
 #[cfg(test)]

@@ -80,10 +80,7 @@ pub async fn open_url(url: String) -> ApiResult<()> {
     let url = url.trim().to_string();
     let scheme_ok = url.starts_with("https://") || url.starts_with("http://");
     if !scheme_ok || url.chars().any(char::is_whitespace) {
-        return Err(ApiError {
-            kind: "invalid".into(),
-            message: "Only web addresses (http or https) can be opened.".into(),
-        });
+        return Err(ApiError::invalid("Only web addresses (http or https) can be opened."));
     }
     open_with_system(&url).map_err(|e| {
         tracing::warn!(error = %e, "could not start the browser");
@@ -133,16 +130,10 @@ pub async fn open_folder(state: State<'_, AppState>, which: AppFolder) -> ApiRes
             match storage.root {
                 Some(root) if storage.root_exists => std::path::PathBuf::from(root),
                 Some(root) => {
-                    return Err(ApiError {
-                        kind: "invalid".into(),
-                        message: format!("The knowledge folder \"{root}\" can't be found."),
-                    });
+                    return Err(ApiError::invalid(format!("The knowledge folder \"{root}\" can't be found.")));
                 }
                 None => {
-                    return Err(ApiError {
-                        kind: "invalid".into(),
-                        message: "Knowledge is not kept in a folder.".into(),
-                    });
+                    return Err(ApiError::invalid("Knowledge is not kept in a folder."));
                 }
             }
         }

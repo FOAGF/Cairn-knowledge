@@ -17,13 +17,11 @@
 //!   with the same term (ignoring case) inside P.
 //!
 //! Upkeep:
-//! - `hooks` call [`index_item`] on every page/task save (before the keyword and vector index, which
-//!   read the item's terms), and `rebuild_all` calls [`rebuild`].
+//! - `hooks` call [`reindex`] on every page/task save (it recomputes the item's terms before the
+//!   keyword and vector index, which read them), and `rebuild_all` calls [`rebuild`].
 //! - Creating, changing or deleting an entry re-indexes only the items that may use it under its
 //!   old or new names: the current `glossary_uses` rows plus keyword-index candidates for the names
 //!   (search, vectors and uses are all refreshed for them).
-//!
-//! Owned by the M4 glossary-core agent.
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::rc::Rc;
@@ -808,13 +806,6 @@ fn item_category(conn: &Connection, kind: SearchKind, id: &str) -> Result<Option
         .optional()?)
 }
 
-/// Recomputes which entries one page or task uses (`glossary_uses`). `hooks` use [`reindex`],
-/// which does this first; this one alone is for callers that don't touch the other indexes.
-#[allow(dead_code)]
-pub(crate) fn index_item(conn: &Connection, kind: SearchKind, id: &str) -> Result<()> {
-    index_item_with(conn, &mut Glossary::load(conn)?, kind, id)
-}
-
 pub(crate) fn index_item_with(
     conn: &Connection,
     g: &mut Glossary,
@@ -1125,22 +1116,28 @@ pub fn prompt_entries(conn: &Connection, category_id: &str, texts: &[&str]) -> R
             }
         }
     }
-    let names: HashMap<String, String> = conn
+    let names = category_names(conn)?;
+    Ok(picked.iter().map(|e| prompt_entry(e, &names)).collect())
+}
+
+/// Category names by id.
+fn category_names(conn: &Connection) -> Result<HashMap<String, String>> {
+    Ok(conn
         .prepare_cached("SELECT id, name FROM categories")?
         .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
-        .collect::<std::result::Result<_, _>>()?;
-    Ok(picked
-        .into_iter()
-        .map(|e| PromptEntry {
-            term: e.term.clone(),
-            other_names: e.other_names.clone(),
-            description: e.description.clone(),
-            category_name: e
-                .category_id
-                .as_ref()
-                .map(|p| names.get(p).cloned().unwrap_or_else(|| p.clone())),
-        })
-        .collect())
+        .collect::<std::result::Result<_, _>>()?)
+}
+
+fn prompt_entry(e: &Entry, category_names: &HashMap<String, String>) -> PromptEntry {
+    PromptEntry {
+        term: e.term.clone(),
+        other_names: e.other_names.clone(),
+        description: e.description.clone(),
+        category_name: e
+            .category_id
+            .as_ref()
+            .map(|p| category_names.get(p).cloned().unwrap_or_else(|| p.clone())),
+    }
 }
 
 /// [`prompt_entries`] for text of several categories (the assistant's sources come from more than
@@ -1162,20 +1159,10 @@ pub fn prompt_entries_in(
         }
     }
     if !term_ids.is_empty() {
-        let names: HashMap<String, String> = conn
-            .prepare_cached("SELECT id, name FROM categories")?
-            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
-            .collect::<std::result::Result<_, _>>()?;
+        let names = category_names(conn)?;
         for id in term_ids {
-            let Ok(e) = get(conn, id) else { continue };
-            let entry = PromptEntry {
-                term: e.term,
-                other_names: e.other_names,
-                description: e.description,
-                category_name: e
-                    .category_id
-                    .map(|p| names.get(&p).cloned().unwrap_or(p)),
-            };
+            let Ok(e) = load_entry(conn, id) else { continue };
+            let entry = prompt_entry(&e, &names);
             if !out.contains(&entry) {
                 out.push(entry);
             }

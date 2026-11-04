@@ -4,7 +4,7 @@ use rusqlite::Connection;
 use super::query::list_on;
 use super::workdays::{blocked_working_days, working_days_between};
 use super::*;
-use crate::categories::{self, NewCategory, CategoryColor};
+use crate::categories;
 
 fn d(s: &str) -> NaiveDate {
     NaiveDate::parse_from_str(s, "%Y-%m-%d").unwrap()
@@ -22,17 +22,7 @@ fn env() -> Env {
     let dir = tempfile::tempdir().unwrap();
     let db = Db::open_at(dir.path()).unwrap();
     let mk = |name: &str, key: &str| {
-        categories::create(
-            db.conn(),
-            NewCategory {
-                name: name.into(),
-                key: key.into(),
-                description: String::new(),
-                color: CategoryColor::preset("blue"),
-            },
-        )
-        .unwrap()
-        .id
+        crate::test_util::category(db.conn(), name, key)
     };
     let a = mk("Alpha", "AAA");
     let b = mk("Beta", "BBB");
@@ -1604,7 +1594,7 @@ fn seed_is_idempotent_and_never_overwrites() {
     let n = dump(&e);
     assert_eq!(
         &n[..5],
-        &[2, 4, 1, 1, 3][..5].iter().map(|x| *x).collect::<Vec<_>>()[..],
+        &[2, 4, 1, 1, 3],
         "edit added today's version only"
     );
     // New tasks continue after the highest seeded number.

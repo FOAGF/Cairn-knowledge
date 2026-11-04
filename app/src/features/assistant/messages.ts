@@ -25,9 +25,14 @@ export function isRunning(m: ChatMessage): boolean {
   return m.steps.length === 0 && !m.text && !m.extra
 }
 
-/** Whether the question was sent with 🌐: the reply after it came from, or tried, a web search (FR-LLM-AS-12). */
+/**
+ * Whether the question was sent with 🌐: the reply after it came from, or tried, a web search (FR-LLM-AS-12).
+ * While it runs, its first step says so (Rust `ask_job`: "Searching the web with …"); other step labels can
+ * hold a model's name, which may contain "web".
+ */
 export function askedWeb(reply: ChatMessage | undefined): boolean {
-  return !!reply && (reply.answer?.basis === 'web' || reply.answer?.basis === 'no_web_search' || reply.steps.some((s) => /web/i.test(s.label)))
+  if (!reply) return false
+  return reply.answer?.basis === 'web' || reply.answer?.basis === 'no_web_search' || !!reply.steps[0]?.label.startsWith('Searching the web')
 }
 
 /** Turns `[n]` into a link `cite:n` for numbers that name a source; `[n](…)` is a real link and stays. */

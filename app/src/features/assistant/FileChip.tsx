@@ -1,18 +1,15 @@
 import { File as FileIcon, FileImage, FileText, TriangleAlert, X } from 'lucide-react'
 import type { FileKind } from '@/api/conversations'
 import { useT } from '@/i18n'
+import { TINT_CLASS } from '@/lib/labels'
+import type { TintColor } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { formatSize } from '../creation/helpers'
 
 type Kind = FileKind
 
 const KIND_ICON = { text: FileText, pdf: FileIcon, docx: FileText, image: FileImage }
-const KIND_STYLE: Record<Kind, string> = {
-  text: 'bg-tint-blue text-tint-blue-fg',
-  pdf: 'bg-tint-rose text-tint-rose-fg',
-  docx: 'bg-tint-purple text-tint-purple-fg',
-  image: 'bg-tint-green text-tint-green-fg',
-}
+const KIND_TINT: Record<Kind, TintColor> = { text: 'blue', pdf: 'rose', docx: 'purple', image: 'green' }
 
 /** A file attached to the composer or to a user message (FR-KN-UP-1..3). */
 export function FileChip({
@@ -35,7 +32,7 @@ export function FileChip({
   return (
     <div className={cn('flex max-w-full flex-col gap-1', className)}>
       <div className="inline-flex max-w-full items-center gap-2.5 rounded-xl border bg-card py-1.5 pr-2 pl-1.5 text-foreground">
-        <span className={cn('flex size-8 shrink-0 items-center justify-center rounded-lg', KIND_STYLE[kind])}>
+        <span className={cn('flex size-8 shrink-0 items-center justify-center rounded-lg', TINT_CLASS[KIND_TINT[kind]])}>
           <Icon className="size-4" />
         </span>
         <span className="min-w-0 text-left">

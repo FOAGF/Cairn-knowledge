@@ -7,11 +7,9 @@ import {
   FolderKanban,
   Lock,
   Pencil,
-  SendHorizontal,
-  Sparkles,
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
+import { Link, useParams } from 'react-router'
 import { SectionCard } from '@/components/shared/PageHeader'
 import { ColorPicker } from '@/components/shared/ColorPicker'
 import { CategoryIcon, TintIcon } from '@/components/shared/tint'
@@ -31,6 +29,7 @@ import { CategoryKnowledgeSection } from './CategoryKnowledgeSection'
 import { CategoryTasksSection } from './CategoryTasksSection'
 import { errorMessage, isApiError } from '@/api/client'
 import { type Category, useCategory, useUpdateCategory } from '@/api/categories'
+import { AskBar } from '@/components/layout/AskBar'
 
 
 function EditCategoryDialog({ category, open, onClose }: { category: Category; open: boolean; onClose: () => void }) {
@@ -183,7 +182,7 @@ function RecentActivity({ category }: { category: Category }) {
     }
     const list = [...byRef.values()]
     return list.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 5)
-  }, [myTasks, myPages, activity, category.id])
+  }, [myTasks, myPages, activity])
 
   return (
     <SectionCard icon={Clock} tint="slate" title={a.title} description={a.description}>
@@ -206,43 +205,6 @@ function RecentActivity({ category }: { category: Category }) {
         </ul>
       )}
     </SectionCard>
-  )
-}
-
-function ScopedAskBar({ category }: { category: Category }) {
-  const navigate = useNavigate()
-  const [q, setQ] = useState('')
-  const p = useT().categories.page
-  const submit = () => {
-    if (!q.trim()) return
-    navigate(`/assistant?q=${encodeURIComponent(q.trim())}&scope=${encodeURIComponent(category.id)}`)
-    setQ('')
-  }
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault()
-        submit()
-      }}
-      className="flex h-14 items-center gap-3 rounded-2xl border bg-card px-4 shadow-[0_1px_3px_rgba(16,24,40,0.05)] focus-within:ring-2 focus-within:ring-ring/40"
-    >
-      <Sparkles className="size-5 shrink-0 text-primary" />
-      <span className="h-6 w-px bg-border" />
-      <input
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder={p.askPlaceholder(category.name)}
-        className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-      />
-      <button
-        type="submit"
-        disabled={!q.trim()}
-        aria-label={p.ask}
-        className="flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
-      >
-        <SendHorizontal className="size-4" />
-      </button>
-    </form>
   )
 }
 
@@ -308,7 +270,7 @@ export default function CategoryPage() {
         </div>
       </div>
 
-      <ScopedAskBar category={category} />
+      <AskBar scope={{ id: category.id, name: category.name }} />
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
         <CategoryTasksSection category={category} />

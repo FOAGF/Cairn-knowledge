@@ -1,4 +1,4 @@
-// The editor's contained box (MarkdownEditor.tsx `followHeight`) and what changed with it: the box
+// The editor's fixed-height box (MarkdownEditor.tsx `followHeight`) and what changed with it: the box
 // keeps the editor's height (lines added and removed, Preview and back), the popups still open next to
 // the cursor, glossary terms are still marked (once typing pauses), and the pending tab's title follows
 // a changed title. Run on a fresh seeded data folder (it edits, never saves):
@@ -15,7 +15,7 @@ const button = (label) => [...document.querySelectorAll('button')].find((b) => b
 const heights = () => {
   const v = view()
   const box = v.dom.parentElement
-  return `box ${box.getBoundingClientRect().height.toFixed(1)} / editor ${v.dom.getBoundingClientRect().height.toFixed(1)} (contain: ${getComputedStyle(box).contain})`
+  return `box ${box.getBoundingClientRect().height.toFixed(1)} / editor ${v.dom.getBoundingClientRect().height.toFixed(1)} (overflow: ${getComputedStyle(box).overflow})`
 }
 const type = (v, text) => v.dispatch({ changes: { from: v.state.selection.main.head, insert: text }, selection: { anchor: v.state.selection.main.head + text.length }, userEvent: 'input.type' })
 const tabText = () => [...document.querySelectorAll('header a')].find((a) => a.querySelector('[aria-label="Not saved"]'))?.textContent.trim() ?? '(no tab)'
@@ -36,7 +36,7 @@ const tabText = () => [...document.querySelectorAll('header a')].find((a) => a.q
     v.dispatch({ changes: { from: before, to: v.state.doc.length } })
     await sleep(400)
     report(`removed again: ${heights()}`)
-    const toggle = (m) => [...document.querySelectorAll('[aria-label="Editor mode"] button')].find((b) => b.textContent.trim() === m).click()
+    const toggle = (m) => [...document.querySelectorAll('[aria-label="Editor mode"] button')].find((b) => b.textContent.trim().toLowerCase() === m).click()
     toggle('preview')
     await sleep(500)
     toggle('edit')

@@ -155,8 +155,10 @@ The zip is a portable folder: `cairn.exe`, the Windows Python bundle, the model,
 
 For the maintainer. `make publish` (`packaging/publish.sh`) makes a **draft** GitHub release; you publish it on GitHub after looking it over.
 
-1. Bump the version (`Cargo.toml`, `src-tauri/tauri.conf.json`, `app/package.json`) and add its row to the version table in `docs/requirements.md` §9.4. Commit and push.
-2. Tag that commit on this computer: `git tag v<version>`. Only a tagged commit builds as `<version>`; any other gets a version like `<version>-3-g1a2b3c4`. You don't push the tag: GitHub publishes it with the release. To build from another commit instead, move it with `git tag -f v<version>`.
+Only minor and major versions (`x.y.0`) are released and tagged. A patch version (`x.y.z`, with z above 0) is a version bump with its row in the version table, committed on `develop` without a tag; its builds carry the last tag's version with a suffix, such as `1.1.0-3-g1a2b3c4`.
+
+1. Bump the version (`Cargo.toml`, `src-tauri/tauri.conf.json`, `app/package.json`) and add its row to the version table in `docs/requirements.md` §9.4. Commit and push to `develop`, then merge `develop` into `main` through a pull request with *Create a merge commit*. A squash would leave the two branches without a shared history; if it happens, merge `main` back into `develop`.
+2. Tag `main`'s commit on this computer: `git tag v<version>`. Only a tagged commit builds as `<version>`; any other gets a version like `<version>-3-g1a2b3c4`. You don't push the tag: GitHub publishes it with the release. To build from another commit instead, move it with `git tag -f v<version>`.
 3. Build the four packages from that commit: `make release-for-publish` (or one at a time: `make release-deb`, `make release-deb-lite`, `make release-windows`, `make release-windows-lite`). Check the Windows zip on Windows.
 4. Run `make publish`. It checks that every package is there and newer than the last commit, that the commit is tagged `v<version>`, that nothing is left uncommitted and that the commit is on GitHub. Then it writes `build/SHA256SUMS` and the notes (`build/release-notes-<version>.md`), shows them with the files, and asks before uploading.
 5. Open the draft it prints, look it over and press *Publish release*. GitHub publishes the tag `v<version>` then.

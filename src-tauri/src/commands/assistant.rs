@@ -173,18 +173,20 @@ pub(crate) async fn prepare_send(
         }
         None => None,
     };
-    let (model_id, model_label) = files::chat_model(state, input.model_id.clone()).await;
+    let (model_id, model_label, effort) = if input.web {
+        web_model(state, input.model_id.clone(), input.effort.clone()).await?
+    } else {
+        let (id, label) = files::chat_model(state, input.model_id.clone()).await;
+        (id, label, input.effort.clone())
+    };
     let attachment = upload.as_ref().map(|u| ChatAttachment {
         name: u.name.clone(),
         size: u.size,
         kind: u.kind,
         chat_file_id: None,
     });
-    let (conversation_id, effort, web) = (
-        input.conversation_id.clone(),
-        input.effort.clone(),
-        input.web,
-    );
+    let (conversation_id, web) = (input.conversation_id.clone(), input.web);
+    let job_effort = effort.clone();
     let (typed, label_model) = (text.clone(), (model_id.clone(), model_label));
     let file_name = upload.as_ref().map(|u| u.name.clone());
     let (user, assistant, read) = state
@@ -250,7 +252,7 @@ pub(crate) async fn prepare_send(
         text,
         refs,
         model_id: assistant.model_id.clone(),
-        effort: input.effort,
+        effort: job_effort,
         web: input.web,
         all_categories: false,
         upload,
@@ -263,6 +265,23 @@ pub(crate) async fn prepare_send(
             assistant_message_id: assistant.id,
         },
     ))
+}
+
+/// The model of a 🌐 message (FR-LLM-AS-12, D-91), with the effort to use: the conversation's
+/// model when it is ticked *Web search*, else the web search model at its default effort, for this
+/// message only (the conversation keeps its model).
+async fn web_model(
+    state: &AppState,
+    picked: Option<String>,
+    effort: Option<String>,
+) -> ApiResult<(Option<String>, Option<String>, Option<String>)> {
+    if let Ok(r) = llm::resolve(state, ModelRole::Conversation, picked).await
+        && r.model.web_search
+    {
+        return Ok((Some(r.model.id), Some(r.model.label), effort));
+    }
+    let r = llm::resolve(state, ModelRole::Web, None).await?;
+    Ok((Some(r.model.id), Some(r.model.label), None))
 }
 
 /// The conversation's title from its first message.

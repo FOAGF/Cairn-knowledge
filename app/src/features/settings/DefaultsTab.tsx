@@ -1,13 +1,14 @@
-import { useModelList, useProviderList } from '@/api/providers'
+import { type ModelConfig, useModelList, useProviderList, webSearchModel } from '@/api/providers'
 import { useSettings, useUpdateSettings } from '@/api/settings'
-import { Bot, MessageSquareText, ScanText, TriangleAlert } from 'lucide-react'
+import { Bot, MessageSquareText, TriangleAlert } from 'lucide-react'
+import { Link } from 'react-router'
 import { SectionCard } from '@/components/shared/PageHeader'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useT } from '@/i18n'
 import { NumberSetting, SettingRow } from './parts'
+import { SearchModelRow } from './SearchModelRow'
 
-/** A whole number typed as text, so the field can be emptied while typing; only a value in range is saved. */
-/** FR-LLM-AS-6: default background model and OCR model. */
+/** UI-SET-3, D-91: the default models (background, OCR, web search, search model), then the Assistant's budgets. */
 export function DefaultsTab() {
   const settings = useSettings()
   const update = useUpdateSettings()
@@ -28,20 +29,21 @@ export function DefaultsTab() {
       </p>
     )
 
-  const picker = (value: string | null | undefined, onChange: (v: string) => void, visionOnly: boolean) => (
+  // `automatic`: the web search model nobody chose, shown as such (FR-LLM-AS-6).
+  const picker = (value: string | null | undefined, onChange: (v: string) => void, fits: (m: ModelConfig) => boolean, automatic = false) => (
     <Select value={value ?? ''} onValueChange={onChange}>
       <SelectTrigger className="w-full">
         <SelectValue placeholder={d.choose} />
       </SelectTrigger>
       <SelectContent>
         {providers.filter((p) => p.enabled).map((p) => {
-          const ms = models.filter((m) => m.providerId === p.id && (!visionOnly || m.vision))
+          const ms = models.filter((m) => m.providerId === p.id && fits(m))
           if (!ms.length) return null
           return (
             <SelectGroup key={p.id}>
               <SelectLabel>{p.name}</SelectLabel>
               {ms.map((m) => (
-                <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>
+                <SelectItem key={m.id} value={m.id}>{automatic && m.id === value ? d.automatic(m.label) : m.label}</SelectItem>
               ))}
             </SelectGroup>
           )
@@ -56,18 +58,47 @@ export function DefaultsTab() {
     </Select>
   )
 
+  const web = webSearchModel(providers, models, settings.webSearchModelId)
+  const anyTicked = models.some((m) => m.webSearch)
+
   return (
     <div className="space-y-6">
       <SectionCard icon={Bot} tint="blue" title={d.defaultTitle} description={d.defaultDescription}>
-        <SettingRow
-          label={d.background}
-          hint={d.backgroundHint}
-        >
-          <div className="w-72">
-            {picker(settings.defaultModelId, (v) => update({ defaultModelId: v }), false)}
-            {warning(settings.defaultModelId)}
-          </div>
-        </SettingRow>
+        <div className="divide-y">
+          <SettingRow label={d.background} hint={d.backgroundHint}>
+            <div className="w-72">
+              {picker(settings.defaultModelId, (v) => update({ defaultModelId: v }), () => true)}
+              {warning(settings.defaultModelId)}
+            </div>
+          </SettingRow>
+          <SettingRow label={d.ocr} hint={d.ocrHint}>
+            <div className="w-72">
+              {picker(settings.ocrModelId, (v) => update({ ocrModelId: v }), (m) => m.vision)}
+              {warning(settings.ocrModelId)}
+            </div>
+          </SettingRow>
+          {/* FR-LLM-AS-12, FR-HOME-7 */}
+          <SettingRow label={d.webSearch} hint={d.webSearchHint}>
+            <div className="w-72">
+              {anyTicked ? (
+                <>
+                  {picker(web?.model.id, (v) => update({ webSearchModelId: v }), (m) => m.webSearch, web?.automatic)}
+                  {warning(web?.model.id)}
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {d.webSearchNone((text) => (
+                    <Link to="/settings/providers" className="text-primary underline-offset-4 hover:underline">
+                      {text}
+                    </Link>
+                  ))}
+                </p>
+              )}
+            </div>
+          </SettingRow>
+          {/* FR-RAG-EM-1, FR-RAG-EM-3 */}
+          <SearchModelRow />
+        </div>
       </SectionCard>
       {/* UI-SET-3: the Assistant's budgets (FR-LLM-AS-1, -10, -12) */}
       <SectionCard icon={MessageSquareText} tint="green" title={d.assistantTitle} description={d.assistantDescription}>
@@ -84,14 +115,6 @@ export function DefaultsTab() {
             <NumberSetting label={d.webSearches} value={settings.webSearchesPerMessage} min={1} max={20} onSave={(n) => update({ webSearchesPerMessage: n })} />
           </SettingRow>
         </div>
-      </SectionCard>
-      <SectionCard icon={ScanText} tint="purple" title={d.ocrTitle} description={d.ocrDescription}>
-        <SettingRow label={d.ocr} hint={d.ocrHint}>
-          <div className="w-72">
-            {picker(settings.ocrModelId, (v) => update({ ocrModelId: v }), true)}
-            {warning(settings.ocrModelId)}
-          </div>
-        </SettingRow>
       </SectionCard>
     </div>
   )

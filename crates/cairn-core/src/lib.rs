@@ -29,6 +29,7 @@ pub mod hybrid;
 pub mod knowledge;
 pub mod lint;
 pub mod mentions;
+pub mod news;
 pub mod merging;
 pub mod categories;
 pub mod prompts;

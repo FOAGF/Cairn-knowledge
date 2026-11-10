@@ -535,6 +535,53 @@ async fn a_refused_web_search_unticks_with_the_reason_and_answers_again_without_
     assert!(calls[1]["web_search"].is_null());
 }
 
+/// D-91: a model that can't search hands the 🌐 message to the web search model, for that message
+/// only and at its default effort; with no model that can search, nothing is sent.
+#[tokio::test]
+async fn a_web_message_goes_to_the_web_search_model_when_the_chat_model_cant_search() {
+    let env = setup(false).await;
+    let (chat, small, responses) = (
+        env.chat_model.clone(),
+        env.small_model.clone(),
+        env.responses_model.clone(),
+    );
+    env.state
+        .with_db(move |db| {
+            providers::set_web_search(db, &chat, false)?;
+            providers::set_web_search(db, &small, false)?;
+            cairn_core::settings::update(
+                db,
+                SettingsPatch {
+                    web_search_model_id: Some(responses),
+                    ..SettingsPatch::default()
+                },
+            )
+            .map(|_| ())
+        })
+        .await
+        .unwrap();
+    let mut input = env.input("WEBSEARCHED what is new");
+    input.web = true;
+    let m = env.ask(input.clone()).await;
+    assert_finished(&m);
+    assert_eq!(m.model_id.as_deref(), Some(env.responses_model.as_str()));
+    assert_eq!((m.model_label.as_deref(), m.effort.as_deref()), (Some("Responses Model"), None));
+    assert_eq!(labels(&m), ["Searching the web with Responses Model"]);
+    assert_eq!(m.answer.unwrap().basis, AnswerBasis::Web);
+
+    // No model can search: the message isn't sent.
+    let responses = env.responses_model.clone();
+    env.state
+        .with_db(move |db| providers::set_web_search(db, &responses, false).map(|_| ()))
+        .await
+        .unwrap();
+    let before = env.messages().await.len();
+    let err = prepare_send(&env.state, &env.uploads, input).await.err().unwrap();
+    assert_eq!(err.kind, crate::llm::UNAVAILABLE);
+    assert!(err.message.contains("No model is set up for web search"), "{}", err.message);
+    assert_eq!(env.messages().await.len(), before);
+}
+
 // ---------------------------------------------------------------- files
 
 #[tokio::test]

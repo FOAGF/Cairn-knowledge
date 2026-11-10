@@ -12,6 +12,8 @@ export const dates = {
     day: 'EEE, d MMM yyyy',
     /** "15 Oct 2026" */
     date: 'd MMM yyyy',
+    /** "14:05" */
+    time: 'HH:mm',
     /** "15 Oct 2026, 14:05" */
     dateTime: 'd MMM yyyy, HH:mm',
     /** "Wednesday 15 October" */

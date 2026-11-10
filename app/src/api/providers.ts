@@ -81,6 +81,22 @@ export function getProvidersSnapshot(): Provider[] {
   return queryClient.getQueryData<Provider[]>(providersKey) ?? EMPTY_PROVIDERS
 }
 
+/**
+ * The web search model (FR-LLM-AS-6, D-91): the one set in Settings while it is ticked *Web search*,
+ * else the only ticked model of an enabled provider (`automatic`). Mirrors `web_search_model` in
+ * `cairn-core/src/providers.rs`, which picks it for the calls.
+ */
+export function webSearchModel(
+  providers: Provider[],
+  models: ModelConfig[],
+  setId: string | null | undefined,
+): { model: ModelConfig; automatic: boolean } | null {
+  const set = models.find((m) => m.id === setId && m.webSearch)
+  if (set) return { model: set, automatic: false }
+  const ticked = usableModels(providers, models).filter((m) => m.webSearch)
+  return ticked.length === 1 ? { model: ticked[0]!, automatic: true } : null
+}
+
 /** The effort levels a model offers in chat (FR-LLM-EF-4). Empty when effort is off. */
 export function effortLevels(model: ModelConfig | undefined): string[] {
   if (!model?.effort.enabled) return []

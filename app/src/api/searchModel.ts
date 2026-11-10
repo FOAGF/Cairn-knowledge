@@ -1,5 +1,5 @@
 // The search model added after installing (FR-RAG-EM-3, D-82). Lite packages leave the model out;
-// Settings › Search downloads it or adds it from a folder or a `.zip`, and the first-start card and
+// Settings › Models & defaults downloads it or adds it from a folder or a `.zip`, and the first-start card and
 // a one-time Home notice offer the download too.
 //
 //   const status = useSearchModelStatus()            // install, the task running or failed, ...

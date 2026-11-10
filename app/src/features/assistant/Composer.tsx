@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { effortLevels, useModelList, useProviderList } from '@/api/providers'
+import { effortLevels, useModelList, useProviderList, webSearchModel } from '@/api/providers'
 import { useSettings } from '@/api/settings'
 import { useHistoryUsage, widenHistory } from '@/api/assistant'
 import { errorMessage } from '@/api/client'
@@ -120,7 +120,9 @@ export function Composer({
   const large = !!file && file.size > settings.largeFileWarningMB * 1024 * 1024 // FR-KN-UP-2: warning only
   const queryClient = useQueryClient()
   const usage = useHistoryUsage(conversationId, modelId || null).data
-  const webSupported = !!model?.webSearch
+  // D-91: the conversation's model when it can search, else the web search model for this message.
+  const fallback = model?.webSearch ? null : webSearchModel(providers, models, settings.webSearchModelId)?.model
+  const webSupported = !!model?.webSearch || !!fallback
   const webOn = web && webSupported && webAllowed
   const webDisabled = !webSupported || !webAllowed
   const widen = () => {
@@ -277,7 +279,8 @@ export function Composer({
             )
           })}
 
-          {/* FR-LLM-AS-12: always shown, usable only for models ticked "Web search"; one message. The span
+          {/* FR-LLM-AS-12: always shown, usable when the conversation's model or the web search model can
+              search (D-91); one message. The span
               carries the tooltip, since a disabled button gets no hover. */}
           <Tooltip>
             <TooltipTrigger asChild>
@@ -297,7 +300,7 @@ export function Composer({
               </span>
             </TooltipTrigger>
             <TooltipContent className="max-w-64">
-              {!webSupported ? c.webUnsupported : webAllowed ? c.webHint : c.webUnavailable}
+              {!webSupported ? c.webUnsupported : !webAllowed ? c.webUnavailable : fallback ? c.webHintWith(fallback.label) : c.webHint}
             </TooltipContent>
           </Tooltip>
 

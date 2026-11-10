@@ -30,7 +30,7 @@ Each release on the [Releases page](../../releases) has two Linux and two Window
 | `Cairn-<version>-windows-x64-lite.zip` | The same without the search model |
 | `SHA256SUMS` | Checksums of the files above |
 
-**Full or lite?** Without the search model, search works by words only, and the duplicate check and the assistant find matches by words too. The model can be added later in Settings › Search: downloaded from Hugging Face after you accept the Gemma Terms of Use, or taken from a zip or folder you already have.
+**Full or lite?** Without the search model, search works by words only, and the duplicate check and the assistant find matches by words too. The model can be added later in Settings › Models & defaults: downloaded from Hugging Face after you accept the Gemma Terms of Use, or taken from a zip or folder you already have.
 
 **Install on Ubuntu:** `sudo apt install ./Cairn_<version>_amd64.deb`. Remove it with `sudo apt remove cairn`.
 

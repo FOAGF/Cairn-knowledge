@@ -99,6 +99,8 @@ pub enum ModelRole {
     Default,
     /// The OCR model (falls back as `llm::resolve` in the Tauri layer describes).
     Ocr,
+    /// The web search model (FR-LLM-AS-6, D-91; [`crate::providers::web_search_model`]).
+    Web,
 }
 
 /// What the reply is (README "Format").
@@ -142,6 +144,8 @@ const TEMPLATES: &[(&str, &str)] = &[
     ("edit-page", include_str!("../prompts/edit-page.md")),
     ("doc-terms", include_str!("../prompts/doc-terms.md")),
     ("ask-web", include_str!("../prompts/ask-web.md")),
+    // The tech news on Home (FR-HOME-7, D-92).
+    ("news", include_str!("../prompts/news.md")),
 ];
 
 const FRAGMENTS: &[(&str, &str)] = &[
@@ -224,6 +228,7 @@ fn parse(id: &'static str, raw: &str) -> Result<Template> {
         Some("conversation") => ModelRole::Conversation,
         Some("default") => ModelRole::Default,
         Some("ocr") => ModelRole::Ocr,
+        Some("web") => ModelRole::Web,
         other => return Err(template_error(id, format!("unknown model {other:?}"))),
     };
     let output = match meta.get("output").copied() {
@@ -755,6 +760,16 @@ pub fn ask_web(today: &str, message: &str, web: bool) -> Result<Vec<LlmMessage>>
     template("ask-web").render(&[("today", today), ("search", search), ("message", message.trim())])
 }
 
+/// `news` (FR-HOME-7): only the topics and the date are sent. `language` is "English" or
+/// "Simplified Chinese".
+pub fn news(today: &str, topics: &str, language: &str) -> Result<Vec<LlmMessage>> {
+    let topics = match topics.trim() {
+        "" => crate::settings::DEFAULT_NEWS_TOPICS,
+        t => t,
+    };
+    template("news").render(&[("today", today), ("topics", topics), ("language", language)])
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -799,6 +814,19 @@ mod tests {
         assert!(off[0].text().contains(WEB_SEARCH_OFF));
         assert!(!off[0].text().contains(WEB_SEARCH_ON));
         assert!(off[0].text().contains("not from a web search"));
+    }
+
+    /// FR-HOME-7: only the topics and the date go out; empty topics are the default.
+    #[test]
+    fn news_sends_only_the_topics_and_the_date() {
+        let m = news("2026-11-10 (Tuesday)", " AI, Rust ", "Simplified Chinese").unwrap();
+        assert_eq!(m.len(), 2);
+        assert!(m[0].text().starts_with("You collect the latest tech news"), "the mocks match on the first words");
+        assert!(m[0].text().contains("Simplified Chinese"));
+        assert_eq!(m[1].text(), "Today: 2026-11-10 (Tuesday)\nTopics: AI, Rust");
+        let m = news("2026-11-10 (Tuesday)", "  ", "English").unwrap();
+        assert!(m[1].text().ends_with("Topics: technology"));
+        assert_eq!(template("news").model, ModelRole::Web);
     }
 
     #[test]

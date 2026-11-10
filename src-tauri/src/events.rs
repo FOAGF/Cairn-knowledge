@@ -34,6 +34,8 @@ pub enum Entity {
     Conversations,
     /// The backup list and the *Last backup* line (M7).
     Backups,
+    /// The tech news on Home (FR-HOME-7).
+    News,
     /// Everything changed, e.g. after an import.
     All,
 }

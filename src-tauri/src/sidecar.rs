@@ -808,9 +808,9 @@ impl Sidecars {
         let model_dir = config.model_dir.as_ref().ok_or_else(|| SidecarError {
             kind: NOT_INSTALLED.into(),
             message: if cfg!(debug_assertions) {
-                "The search model isn't installed. Run scripts/setup-sidecar-dev.sh, set CAIRN_EMBED_MODEL_DIR, or add it in Settings › Search."
+                "The search model isn't installed. Run scripts/setup-sidecar-dev.sh, set CAIRN_EMBED_MODEL_DIR, or add it in Settings › Models & defaults."
             } else {
-                "Search by meaning isn't installed. It can be added in Settings › Search."
+                "Search by meaning isn't installed. It can be added in Settings › Models & defaults."
             }
             .into(),
             hint: None,

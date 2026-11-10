@@ -1,4 +1,4 @@
-// Settings › Search, the *Model* row (FR-RAG-EM-1, FR-RAG-EM-3, D-82): a model built into the
+// Settings › Models & defaults, the *Search model* row of *Default models* (FR-RAG-EM-1, FR-RAG-EM-3, D-82, D-91): a model built into the
 // package, one added after installing (with *Remove*), or none, with the ways to add it: download
 // (after the Gemma Terms of Use tick) or *From file…* (a `.zip` or a folder). While one runs, its
 // progress; after one failed, its reason.

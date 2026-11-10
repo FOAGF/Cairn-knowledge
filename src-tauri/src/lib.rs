@@ -198,6 +198,10 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::logs::set_detailed_logs,
             commands::logs::log_ui_error,
             //
+            // Tech news on Home (FR-HOME-7, D-92)
+            commands::news::news,
+            commands::news::fetch_news,
+            //
             // Home (M7 redesign, D-54)
             commands::home::home_overview,
             //
@@ -341,6 +345,7 @@ pub fn run() {
             // M5: running LLM work that *Stop* can end, and uploads in progress.
             app.manage(Arc::new(llm::Jobs::default()));
             app.manage(commands::files::Uploads::default());
+            app.manage(commands::news::NewsFetch::default());
             app.manage(indexer::Indexer::start(app.handle().clone()));
             // D-82: a search model added later, and a download to resume.
             app.manage(search_model::SearchModel::start(app.handle().clone(), model_paths));

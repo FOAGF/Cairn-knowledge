@@ -57,6 +57,20 @@ export const home = {
     hint: 'Click a day to see what’s due then.',
     tasksDue: (n: number) => plural(n, '# task due', '# tasks due'),
   },
+  /** FR-HOME-7, D-92: the tech news card. Errors come from Rust in English. */
+  news: {
+    title: 'Tech news',
+    updated: (when: string) => `Updated ${when}`,
+    fetching: 'Searching the web…',
+    refresh: 'Refresh',
+    refreshHint: 'Search again now. Each fetch is a paid web search.',
+    notYet: 'No news fetched yet.',
+    empty: 'No recent news was found for these topics.',
+    noModel: (link: (text: string) => ReactNode) => <>No model is set up for web search. {link('Choose one in Settings')}</>,
+    failed: (reason: string) => `The news couldn't be fetched: ${reason}`,
+    showMore: (n: number) => `Show ${n} more`,
+    open: 'Open in the browser',
+  },
   /** FR-DATA-8: a copy with no data yet. */
   firstStart: {
     title: 'Welcome to Cairn',

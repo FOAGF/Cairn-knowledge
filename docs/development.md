@@ -159,6 +159,7 @@ sidecar/.venv/bin/python -m pytest sidecar/tests -q   # sidecar tests (about 50 
      - the history budget, and a question about an attached PDF.
 
      The mock answers the M6 templates too. Web search: a request with `web_search_options` gets `url_citation` annotations, unless the question contains "ignore".
+     The tech news on Home (FR-HOME-7): the `news` template gets seven stories (in Chinese when the interface is), cited the same way; topics containing "ignore" play a model that made no search.
   5. **Effort (D-65):** the mock's log line shows the effort each request carried (`effort=high`, `-` when none), and a request with `reasoning_effort` low, medium or high reports 120, 480 or 1,500 reasoning tokens, so the reply's "· high effort · thought for N tokens" can be checked. The mock is OpenAI-compatible: create its provider with `kind: 'openai_compatible'`, `endpoint: 'http://127.0.0.1:5298/v1'`, `auth: 'none'`, and a model with `effort: { enabled: true, … }`.
   - **The Tauri tests' fake sidecar** (`src-tauri/tests/fixtures/fake_sidecar.py`) has an M6 answers block and an M6 actions block. Marker words in the message steer them (documented at the top of each block). It decides the effort level as the real worker does (`resolve_level`) and then reports 10 reasoning tokens per call.
 

@@ -88,7 +88,8 @@ pub struct Resolved {
 /// - `Conversation`: the model picked in the chat, else the default model;
 /// - `Default`: Settings › default model;
 /// - `Ocr`: the OCR model, else the default model if it can read images, else the chat's model if
-///   it can.
+///   it can;
+/// - `Web`: the web search model (D-91, `providers::web_search_model`).
 ///
 /// Fails with [`UNAVAILABLE`] when none is set, or its provider is disabled or lacks its key.
 pub async fn resolve(
@@ -118,10 +119,14 @@ pub async fn resolve(
                 ModelRole::Ocr => get(&settings.ocr_model_id)?
                     .or_else(|| default.filter(|m| m.vision))
                     .or(get(&conversation_model)?.filter(|m| m.vision)),
+                ModelRole::Web => {
+                    providers::web_search_model(conn, settings.web_search_model_id.as_deref())?
+                }
             };
             let Some(model) = chosen else {
                 return Ok(Err(match role {
                     ModelRole::Ocr => "No model that can read images is set. Choose an OCR model in Settings › Models & defaults.",
+                    ModelRole::Web => "No model is set up for web search. Tick Web search on a model in Settings › AI providers, then choose it in Settings › Models & defaults.",
                     _ => "No default model is set. Choose one in Settings › Models & defaults.",
                 }
                 .to_string()));

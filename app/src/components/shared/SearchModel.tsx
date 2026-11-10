@@ -1,4 +1,4 @@
-// Pieces for adding the search model after installing (FR-RAG-EM-3, D-82), used by Settings › Search,
+// Pieces for adding the search model after installing (FR-RAG-EM-3, D-82), used by Settings › Models & defaults,
 // the first-start card (FR-DATA-8), the Home notice and the top bar.
 import { CircleAlert, Download } from 'lucide-react'
 import { useState } from 'react'
@@ -87,7 +87,7 @@ export function SearchModelProgress({ task, className }: { task: ModelTask; clas
 
 /**
  * One line while the model is being added, with a thin bar, or a short line after it failed; it links
- * to Settings › Search. Nothing when no task runs. `compact` is the top bar's shorter text.
+ * to Settings › Models & defaults. Nothing when no task runs. `compact` is the top bar's shorter text.
  */
 export function SearchModelTaskLine({ compact = false, className }: { compact?: boolean; className?: string }) {
   const task = useSearchModelStatus()?.task
@@ -99,7 +99,7 @@ export function SearchModelTaskLine({ compact = false, className }: { compact?: 
   const text = compact ? (failed ? m.compactFailed : m.compact(pct)) : long
   return (
     <Link
-      to="/settings/search"
+      to="/settings/models"
       title={compact ? long : undefined}
       className={cn('flex min-w-0 flex-col gap-1 text-xs hover:text-foreground', failed ? 'text-destructive' : 'text-muted-foreground', className)}
     >

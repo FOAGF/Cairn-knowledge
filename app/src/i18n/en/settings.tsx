@@ -39,6 +39,19 @@ export const settings = {
     changeFolder: 'Change…',
     folderChangeInDev: 'Changing the data folder is not available in development builds.',
   },
+  // FR-HOME-7, D-92
+  home: {
+    title: 'Home',
+    description: 'What the home page shows',
+    news: 'Tech news',
+    newsHint:
+      'A card of recent tech news on Home, fetched once a day by the web search model and again when you click Refresh. Each fetch is a paid web search. Only the topics and the date are sent, never your notes.',
+    topics: 'Topics',
+    topicsHint: 'What the news covers, separated by commas, e.g. “AI, Rust, cloud”. Left empty: technology.',
+    noWebModel: (link: (text: string) => ReactNode) => (
+      <>No model is set up for web search, so no news can be fetched. Choose one in {link('Models & defaults')}.</>
+    ),
+  },
   dataFolderDialog: {
     title: 'Change the data folder',
     description:
@@ -280,11 +293,11 @@ export const settings = {
 
   // ---------------------------------------------------------------- Models & defaults (FR-LLM-AS-6, UI-SET-3)
   defaults: {
-    providerOff: "This model's provider is disabled. Background jobs will fail until you pick another model or re-enable the provider.",
+    providerOff: "This model's provider is disabled. What uses this model fails until you pick another model or re-enable the provider.",
     choose: 'Choose a model',
     providerDisabled: 'Provider disabled',
-    defaultTitle: 'Default model',
-    defaultDescription: 'For background jobs. The chat model is picked in the conversation.',
+    defaultTitle: 'Default models',
+    defaultDescription: 'Which model does what. The chat model is picked in the conversation.',
     background: 'Default background model',
     backgroundHint: 'Used for drafting pages, topic checks, group suggestions and merge suggestions.',
     assistantTitle: 'Assistant',
@@ -298,10 +311,13 @@ export const settings = {
     tokens: 'tokens',
     webSearches: 'Web searches per message',
     webSearchesHint: 'The most searches a model may make for one 🌐 message (1 to 20). Default 5.',
-    ocrTitle: 'OCR model',
-    ocrDescription: 'Reads text from images and scanned files',
     ocr: 'Vision / OCR model',
-    ocrHint: 'Only models marked as vision-capable are listed.',
+    ocrHint: 'Reads text from images and scanned files. Only models marked as vision-capable are listed.',
+    webSearch: 'Web search model',
+    webSearchHint:
+      "Answers 🌐 messages when the conversation's model can't search, and fetches the tech news on Home. Only models ticked Web search are listed.",
+    webSearchNone: (link: (text: string) => ReactNode) => <>No model is ticked Web search yet. Tick it on a model in {link('AI providers')}.</>,
+    automatic: (model: string) => `${model} (automatic)`,
   },
 
   // ---------------------------------------------------------------- Knowledge
@@ -345,9 +361,9 @@ export const settings = {
       failed: 'Failed',
     },
     rebuilt: 'Index rebuilt. Pieces that changed are indexed in the background.',
-    modelTitle: 'Search model',
-    modelDescription: 'Used for meaning-based search',
-    model: 'Model',
+    modelTitle: 'Search worker',
+    modelDescription: 'Runs the search model on this computer. The model itself is in Models & defaults.',
+    model: 'Search model',
     modelHint: 'Built into the app. Search works offline and nothing is sent out for indexing.',
     builtIn: 'EmbeddingGemma (built-in, runs locally)',
     workerLabel: 'Search model worker',

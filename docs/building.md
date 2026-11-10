@@ -123,7 +123,7 @@ Two things stay outside `build/`:
 
 ### Full and lite packages
 
-Each package also comes in a **lite** version without the search model, about 160 MB smaller (NFR-INS-1b). Search by words works as usual. Search by meaning needs the model, which Settings › Search can download or add from a file.
+Each package also comes in a **lite** version without the search model, about 160 MB smaller (NFR-INS-1b). Search by words works as usual. Search by meaning needs the model, which Settings › Models & defaults can download or add from a file.
 
 - A lite package's NOTICE leaves out the Gemma terms, and its self-test expects no model.
 - Full and lite files sit side by side in `build/`: building one keeps the other.

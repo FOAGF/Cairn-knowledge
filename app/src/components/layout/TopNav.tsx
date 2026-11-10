@@ -65,7 +65,7 @@ export function TopNav() {
         </nav>
 
         <div className="ml-auto flex items-center gap-1">
-          {/* FR-RAG-EM-3, D-82: the search model being added, or a failure; links to Settings › Search */}
+          {/* FR-RAG-EM-3, D-82: the search model being added, or a failure; links to Settings › Models & defaults */}
           <SearchModelTaskLine compact className="mr-3 min-w-36 max-w-56" />
           <Button
             variant="outline"

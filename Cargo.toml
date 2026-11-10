@@ -5,7 +5,7 @@ members = ["crates/cairn-core", "src-tauri"]
 exclude = ["poc"]
 
 [workspace.package]
-version = "1.0.3"
+version = "1.0.4"
 edition = "2024"
 rust-version = "1.90"
 

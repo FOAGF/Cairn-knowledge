@@ -2,6 +2,7 @@ import { useSettings, useUpdateSettings } from '@/api/settings'
 import { commands } from '@/api/bindings'
 import { errorMessage, isChangedOnDisk } from '@/api/client'
 import { useDraft } from '@/api/drafts'
+import { recordOpened } from '@/api/opened'
 import { followOwnWrites, useGroups, usePage, useUpdatePage } from '@/api/knowledge'
 // A single page: header, origin, source info, body (view or edit) and sidebar (§5.1, §5.2).
 import { Archive, ChevronRight, FileQuestion, FileText, Pencil, RotateCcw, ScanSearch, TriangleAlert } from 'lucide-react'
@@ -64,6 +65,8 @@ export function PageView({ pageId }: { pageId: string }) {
   const external = useIsExternal()
   const { mutate: updatePage, isPending: saving } = useUpdatePage()
   const draft = useDraft('page', pageId)
+  // D-94: the `[[` suggestions list the pages opened last first.
+  useEffect(() => recordOpened('page', pageId), [pageId])
   const [editing, setEditing] = useState(false)
   // `body` is the text without its `# title` line, which is written back from `title` on save
   // (`titleLine`: the page had that line), so the title is edited only in the title field.

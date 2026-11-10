@@ -1145,6 +1145,40 @@ fn list_text_search() {
 }
 
 #[test]
+fn due_sort_puts_newer_tasks_first_on_the_same_day_and_without_a_date() {
+    // D-93
+    let mut e = env();
+    let a = e.a.clone();
+    let mut mk = |title: &str, due: Option<&str>| {
+        create(
+            &mut e.db,
+            NewTask {
+                category_id: a.clone(),
+                title: title.into(),
+                due_date: due.map(Into::into),
+                ..Default::default()
+            },
+        )
+        .unwrap()
+        .key
+    };
+    let undated_old = mk("undated old", None);
+    let day_old = mk("day old", Some("2026-10-20"));
+    let soon = mk("soon", Some("2026-10-15"));
+    let undated_new = mk("undated new", None);
+    let day_new = mk("day new", Some("2026-10-20"));
+    let listed = list_on(e.db.conn(), &TaskFilter::default(), d("2026-10-14"))
+        .unwrap()
+        .into_iter()
+        .map(|t| t.key)
+        .collect::<Vec<_>>();
+    assert_eq!(
+        listed,
+        vec![soon, day_new, day_old, undated_new, undated_old]
+    );
+}
+
+#[test]
 fn list_sorting_and_limit() {
     let f = fixture();
     let s = |sort, descending: bool| {

@@ -16,6 +16,7 @@ pub mod home;
 pub mod knowledge;
 pub mod logs;
 pub mod news;
+pub mod opened;
 pub mod categories;
 pub mod providers;
 pub mod search;

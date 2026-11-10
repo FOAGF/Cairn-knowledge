@@ -76,7 +76,10 @@ const _: () = assert!(STEPS_0X.len() == BASELINE);
 
 /// The steps after 1.0, from version 11 (`migrations/NNNN_name.sql`), oldest first. Append new steps
 /// at the end.
-const STEPS: &[&str] = &[];
+const STEPS: &[&str] = &[
+    // 11: when each task and page was last opened, for the suggestion lists (D-94).
+    include_str!("../migrations/0011_opened.sql"),
+];
 
 /// The steps (numbered from 1, as `user_version` counts them) that rebuild tables and must run with
 /// foreign keys off. See the module comment.

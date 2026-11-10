@@ -146,7 +146,8 @@ pub enum DueFilter {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, Type)]
 #[serde(rename_all = "snake_case")]
 pub enum TaskSortField {
-    /// Soonest first; tasks without a due date last.
+    /// Soonest first; tasks without a due date last. On the same day, and without a date, newest
+    /// first (D-93).
     #[default]
     Due,
     /// High first.

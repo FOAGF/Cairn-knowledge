@@ -12,6 +12,7 @@ Each folder holds the data folder (`data/`: `cairn.sqlite` and `attachments/`) a
 | `0.12.1` | 9 | Cairn 0.12.1 | the knowledge mode |
 | `0.17.0` | 10 | Cairn 0.17.0 | |
 | `0.17.0-external` | 10 | Cairn 0.17.0, with `external` | |
+| `1.0.4` | 11 | Cairn 1.0.4 | |
 
 Knowledge is internal in all but `0.17.0-external`, so they have no nested groups and their external-mode tables are empty. `0.17.0-external` (external mode exists from 0.13.0, schema 10, D-72) also holds its knowledge folder (`notes/`): a group inside a group, a page written outside Cairn, and a group folder deleted outside Cairn, whose data waits in `removed_groups` and `removed_pages`. Its database records the folder it was made in, so the test points its copy at the copied `notes/` before opening it, and imports its export with that folder (FR-KN-EXT-14). After the checks, a full scan of the folder must find nothing to change.
 

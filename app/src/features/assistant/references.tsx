@@ -3,6 +3,7 @@
 // reads well in plain text; sending turns it into the stored `[Title](page:<id>)`, so the message
 // shows it as a chip and Rust sends that page to the model.
 import { type RefObject, useEffect, useRef, useState } from 'react'
+import { recordOpened } from '@/api/opened'
 import { suggestPages, suggestTasks } from '@/components/editor/mentionComplete'
 import { pageLink } from '@/lib/mentions'
 import { type Suggestion, SuggestionList } from './SuggestionList'
@@ -112,6 +113,7 @@ export function useReferences(text: string, setText: (t: string) => void, area: 
     previous.current = next
     setText(next)
     close()
+    recordOpened(s.kind, s.id) // D-94
     const at = trigger.from + insert.length
     requestAnimationFrame(() => {
       el.focus()

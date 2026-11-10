@@ -349,6 +349,13 @@ export const commands = {
 	 *  setting may be "system", which only the UI can resolve). Returns at once.
 	 */
 	fetchNews: (language: Language, force: boolean) => __TAURI_INVOKE<NewsView>("fetch_news", { language, force }),
+	/**
+	 *  Records a task or page as opened (its page was shown, or it was picked from a suggestion
+	 *  list). No event: only the suggestion lists read it, each time they open.
+	 */
+	recordOpened: (kind: OpenedKind, id: string) => __TAURI_INVOKE<null>("record_opened", { kind, id }),
+	/**  The ids of the most recently opened tasks or pages, most recent first. */
+	recentlyOpened: (kind: OpenedKind, limit: number) => __TAURI_INVOKE<string[]>("recently_opened", { kind, limit }),
 	/**  Everything Home shows, in one call: counts, the Today list, the calendar's due counts. */
 	homeOverview: () => __TAURI_INVOKE<HomeOverview>("home_overview"),
 	/**
@@ -1769,6 +1776,8 @@ export type NewsView = {
 	fetching: boolean,
 };
 
+export type OpenedKind = "task" | "page";
+
 /**
  *  A knowledge page (§5.1). `body` is Markdown; page mentions are `[Title](page:<id>)`,
  *  task mentions `#KEY`, images `![alt](attachment:<name>)`. In external mode (D-72) other files
@@ -2435,7 +2444,10 @@ export type TaskSnapshot = {
 };
 
 export type TaskSortField = 
-/**  Soonest first; tasks without a due date last. */
+/**
+ *  Soonest first; tasks without a due date last. On the same day, and without a date, newest
+ *  first (D-93).
+ */
 "due" | 
 /**  High first. */
 "priority" | "created" | "updated" | 

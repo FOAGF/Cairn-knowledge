@@ -202,6 +202,10 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::news::news,
             commands::news::fetch_news,
             //
+            // What was opened last, for the suggestion lists (D-94)
+            commands::opened::record_opened,
+            commands::opened::recently_opened,
+            //
             // Home (M7 redesign, D-54)
             commands::home::home_overview,
             //

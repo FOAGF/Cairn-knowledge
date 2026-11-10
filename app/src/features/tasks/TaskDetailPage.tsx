@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
 import { useDraft } from '@/api/drafts'
+import { recordOpened } from '@/api/opened'
 import { DraftRestorePrompt, draftText } from '@/components/editor/DraftRestorePrompt'
 import { MarkdownField } from '@/components/editor/MarkdownField'
 import { MarkdownView } from '@/components/shared/MarkdownView'
@@ -193,6 +194,12 @@ export default function TaskDetailPage() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const t = useT()
   const d = t.tasks.detail
+
+  // D-94: the `#` suggestions list the tasks opened last first.
+  const taskId = task?.id
+  useEffect(() => {
+    if (taskId) recordOpened('task', taskId)
+  }, [taskId])
 
   // An old key (after a move) resolves to the task; show it under its current key (FR-TASK-UI-6).
   useEffect(() => {

@@ -416,7 +416,7 @@ mod tests {
             conn.execute_batch(V9_KNOWLEDGE).unwrap();
         }
         let db = Db::open(paths).unwrap();
-        assert_eq!(db.schema_version().unwrap(), 10);
+        assert_eq!(db.schema_version().unwrap(), latest_version());
         assert_eq!(std::fs::read_dir(db.paths().backups_dir()).unwrap().count(), 1);
         let c = db.conn();
         let n = |sql: &str| -> i64 { c.query_row(sql, [], |r| r.get(0)).unwrap() };

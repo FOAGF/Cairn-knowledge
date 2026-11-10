@@ -99,7 +99,10 @@ pub(super) fn list_on(
         "ASC"
     };
     let order = match filter.sort.unwrap_or_default() {
-        TaskSortField::Due => format!("(t.due_date IS NULL) {dir}, t.due_date {dir}"),
+        // D-93: tasks on the same day, and those without a date, newest first.
+        TaskSortField::Due => {
+            format!("(t.due_date IS NULL) {dir}, t.due_date {dir}, t.created_at DESC, t.rowid DESC")
+        }
         TaskSortField::Priority => {
             format!("CASE t.priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END {dir}")
         }

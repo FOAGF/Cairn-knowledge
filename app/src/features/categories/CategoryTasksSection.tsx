@@ -43,6 +43,8 @@ export function CategoryTasksSection({ category }: { category: Category }) {
   }, [tasks])
   const total = SEGMENTS.reduce((n, s) => n + counts[s], 0)
 
+  // The sort is stable: tasks on the same day, and those without a date, keep the query's order,
+  // newest first (D-93).
   const open = useMemo(
     () => tasks.filter((t) => !isClosed(t.status)).sort((a, b) => (a.dueDate ?? '9999').localeCompare(b.dueDate ?? '9999')),
     [tasks],

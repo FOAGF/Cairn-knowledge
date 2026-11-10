@@ -3,14 +3,13 @@ import { Children, type ReactNode, useEffect, useMemo, useState } from 'react'
 import ReactMarkdown, { type Options } from 'react-markdown'
 import { Link } from 'react-router'
 import remarkGfm from 'remark-gfm'
-import { toast } from 'sonner'
 import { openUrl } from '@/api/assistant'
-import { errorMessage, isTauri } from '@/api/client'
+import { isTauri, toastError } from '@/api/client'
 import { attachmentUrl, usePagesByIds } from '@/api/knowledge'
 import { useSettings } from '@/api/settings'
 import { folderFileUrl, folderPath } from '@/api/storage'
 import { useTasksByKeys } from '@/api/tasks'
-import { STATUS_TINT, TINT_TEXT } from '@/lib/labels'
+import { STATUS_TINT, TINT_TEXT, isClosed } from '@/lib/labels'
 import { mayHaveMath, prepareMath } from '@/lib/math'
 import { mentionsToLinks } from '@/lib/mentions'
 import { useGlossary } from '@/api/glossary'
@@ -35,7 +34,7 @@ export function TaskMention({ taskKey }: { taskKey: string }) {
       title={task.title}
     >
       <span className={cn('relative top-[-1px] inline-block size-1.5 self-center rounded-full', TINT_TEXT[STATUS_TINT[task.status]])} style={{ backgroundColor: 'currentcolor' }} />
-      <span className={task.status === 'done' || task.status === 'wont_do' ? 'line-through' : ''}>{task.key}</span>
+      <span className={isClosed(task.status) ? 'line-through' : ''}>{task.key}</span>
       <span className="max-w-[16rem] truncate font-normal opacity-80">{task.title}</span>
     </Link>
   )
@@ -102,7 +101,7 @@ function ExternalLink({ href, children }: { href: string; children: ReactNode })
       href={href}
       onClick={(e) => {
         e.preventDefault()
-        void openUrl(href).catch((err) => toast.error(errorMessage(err)))
+        void openUrl(href).catch(toastError)
       }}
     >
       {children}

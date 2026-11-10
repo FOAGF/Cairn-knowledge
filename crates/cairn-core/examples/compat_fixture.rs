@@ -21,6 +21,7 @@ use cairn_core::conversations::{self, ChatRole, FileKind, NewConversation, NewMe
 use cairn_core::glossary::{self, NewGlossaryEntry};
 use cairn_core::knowledge::external::scan::{self, Scope};
 use cairn_core::knowledge::{self, NewGroup, NewPage, PagePatch};
+use cairn_core::opened::{self, OpenedKind};
 use cairn_core::providers::{self, AuthMode, NewModel, NewProvider, ProviderKind, RequestFormat};
 use cairn_core::secrets::MemoryStore;
 use cairn_core::settings::{self, SettingsPatch};
@@ -234,6 +235,9 @@ fn main() -> cairn_core::Result<()> {
     if let Some(notes) = &notes {
         external(&mut db, notes, &cmp.id, &group.id, &t1.id, &p1.id)?;
     }
+    // From 1.0.4 (D-94): the task and the page were opened.
+    opened::record(db.conn(), OpenedKind::Task, &t1.id)?;
+    opened::record(db.conn(), OpenedKind::Page, &p1.id)?;
 
     // Conversations: one with the model, effort, an answer and a file; one archived.
     let message = |role: ChatRole, text: &str, model_id: Option<String>| NewMessage {

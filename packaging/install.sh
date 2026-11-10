@@ -2,12 +2,12 @@
 # packaging/install.sh (`make install`, `make install-lite`, NFR-INS-1, NFR-INS-1b, D-46, D-82): installs the
 # AppImage for the current user.
 #
-#   packaging/install.sh [AppImage file]          (default: the newest one `make release` built)
-#   packaging/install.sh --lite [AppImage file]   (default: the newest one `make release-lite` built)
+#   packaging/install.sh [AppImage file]          (default: the one `make release` built last)
+#   packaging/install.sh --lite [AppImage file]   (default: the one `make release-lite` built last)
 #
 # A lite AppImage (no search model) is installed as ~/Applications/Cairn-lite-<version>.AppImage; a file named
 # Cairn-lite_… is taken as lite without --lite. Full and lite share the Cairn.AppImage link, the menu entry and the
-# data folder, so the one installed last is the one that starts. Each kind keeps its own newest two.
+# data folder, so the one installed last is the one that starts. Each kind keeps the last two installed.
 #
 # What it does (everything is in your home folder; it never uses sudo):
 #   - copies the AppImage to ~/Applications/Cairn-<version>.AppImage and points
@@ -31,11 +31,11 @@ if [ "${1:-}" = --lite ]; then
 fi
 image="${1:-}"
 if [ -z "$image" ]; then
-    # newest by version number
+    # The one built last. Not by name: 1.0.0-47-g3bb7870 (D-90) sorts before 1.0.0 by version number.
     pattern='Cairn_*_amd64.AppImage'
     [ "$lite" = 1 ] && pattern='Cairn-lite_*_amd64.AppImage'
     # shellcheck disable=SC2086
-    image="$(ls "$REPO"/build/$pattern 2>/dev/null | sort -V | tail -n 1 || true)"
+    image="$(ls -t "$REPO"/build/$pattern 2>/dev/null | head -n 1 || true)"
 fi
 if [ -z "$image" ] || [ ! -f "$image" ]; then
     build='make release'
@@ -67,15 +67,15 @@ install -m 755 "$image" "$target.part"
 mv -f "$target.part" "$target"
 ln -sfn "$(basename "$target")" "$link"
 
-# Keep this version and the newest other one of the same kind (full or lite); remove the rest. The file just
-# installed is never removed, even when it is older than the others.
+# Keep this version and the one of the same kind (full or lite) installed before it; remove the rest. The file
+# just installed is never removed, even when it is an older version than the others.
 if [ "$lite" = 1 ]; then
-    mapfile -t others < <(ls "$apps"/Cairn-lite-*.AppImage 2>/dev/null | grep -vxF "$target" | sort -V)
+    mapfile -t others < <(ls -t "$apps"/Cairn-lite-*.AppImage 2>/dev/null | grep -vxF "$target")
 else
-    mapfile -t others < <(ls "$apps"/Cairn-[0-9]*.AppImage 2>/dev/null | grep -vxF "$target" | sort -V)
+    mapfile -t others < <(ls -t "$apps"/Cairn-[0-9]*.AppImage 2>/dev/null | grep -vxF "$target")
 fi
 if [ "${#others[@]}" -gt 1 ]; then
-    for old in "${others[@]:0:${#others[@]}-1}"; do
+    for old in "${others[@]:1}"; do
         log "removing the old version $(basename "$old")"
         rm -f "$old"
     done

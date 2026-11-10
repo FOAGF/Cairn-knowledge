@@ -1,5 +1,6 @@
 // Home (FR-HOME-1..6, D-54): what needs you today. A large clock, the greeting with a line of
-// counts, the Ask box and a *Needs attention* line, then the Today list beside the calendar.
+// counts, the Ask box and a *Needs attention* line, then the Today list beside the calendar, and
+// below them the tech news when it is on (FR-HOME-7).
 // Everything comes from one Rust call (api/home.ts): Home never loads every task or page.
 import { format, parseISO } from 'date-fns'
 import {
@@ -36,6 +37,7 @@ import { cn } from '@/lib/utils'
 import { getT, useLang, useT } from '@/i18n'
 import { FirstStartCard } from './FirstStartCard'
 import { LocalClock } from './LocalClock'
+import { NewsCard } from './NewsCard'
 import { SearchModelNotice } from './SearchModelNotice'
 
 /** Tasks shown per Today group before "Show N more" (Rust sends up to 10 per group). */
@@ -353,6 +355,8 @@ export default function HomePage() {
           onSelect={(d) => setPicked(d ? dayKey(d) : null)}
         />
       </div>
+      {/* FR-HOME-7: only when switched on in Settings › General */}
+      <NewsCard />
     </div>
   )
 }

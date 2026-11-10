@@ -7,6 +7,7 @@
 
 use std::collections::HashMap;
 use std::future::Future;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use cairn_core::prompts::{LlmMessage, ModelRole, Role};
@@ -37,6 +38,8 @@ pub struct LlmDelta {
 pub const UNAVAILABLE: &str = "llm_unavailable";
 /// The kind when *Stop* ended the call.
 pub const CANCELLED: &str = "cancelled";
+/// The kind when a JSON reply couldn't be read, even after asking again.
+pub const UNREADABLE: &str = "ai_unreadable";
 
 pub fn unavailable(message: impl Into<String>) -> ApiError {
     ApiError {
@@ -85,7 +88,8 @@ pub struct Resolved {
 /// - `Conversation`: the model picked in the chat, else the default model;
 /// - `Default`: Settings › default model;
 /// - `Ocr`: the OCR model, else the default model if it can read images, else the chat's model if
-///   it can.
+///   it can;
+/// - `Web`: the web search model (D-91, `providers::web_search_model`).
 ///
 /// Fails with [`UNAVAILABLE`] when none is set, or its provider is disabled or lacks its key.
 pub async fn resolve(
@@ -115,10 +119,14 @@ pub async fn resolve(
                 ModelRole::Ocr => get(&settings.ocr_model_id)?
                     .or_else(|| default.filter(|m| m.vision))
                     .or(get(&conversation_model)?.filter(|m| m.vision)),
+                ModelRole::Web => {
+                    providers::web_search_model(conn, settings.web_search_model_id.as_deref())?
+                }
             };
             let Some(model) = chosen else {
                 return Ok(Err(match role {
                     ModelRole::Ocr => "No model that can read images is set. Choose an OCR model in Settings › Models & defaults.",
+                    ModelRole::Web => "No model is set up for web search. Tick Web search on a model in Settings › AI providers, then choose it in Settings › Models & defaults.",
                     _ => "No default model is set. Choose one in Settings › Models & defaults.",
                 }
                 .to_string()));
@@ -149,6 +157,19 @@ pub struct CallOptions {
     /// FR-LLM-AS-12: turn on the provider's web search, with at most this many searches
     /// (PROTOCOL.md `web_search`). `None` = no web search.
     pub web_search: Option<u32>,
+}
+
+impl CallOptions {
+    /// A call of at most `timeout_s` seconds per attempt, streamed under `stream` when given, at
+    /// the `effort` picked (or the model's default).
+    pub fn new(stream: Option<&str>, effort: Option<String>, timeout_s: u32) -> CallOptions {
+        CallOptions {
+            stream_id: stream.map(str::to_string),
+            timeout_s: Some(timeout_s),
+            effort,
+            ..CallOptions::default()
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -306,17 +327,27 @@ pub async fn complete_json(
     if let Some(v) = replies::json_object(&first.text) {
         return Ok((v, first));
     }
-    tracing::debug!("JSON reply unreadable, retrying once");
-    let mut again = messages.to_vec();
-    again.push(LlmMessage::new(Role::Assistant, first.text.clone()));
-    again.push(cairn_core::prompts::check_retry()?);
-    let second = complete(app, sidecars, target, &again, opts).await?;
+    let second = complete(app, sidecars, target, &json_retry(messages, &first.text)?, opts).await?;
     match replies::json_object(&second.text) {
         Some(v) => Ok((v, second)),
-        None => Err(ApiError {
-            kind: "ai_unreadable".into(),
-            message: "The model's answer couldn't be read, even after asking again.".into(),
-        }),
+        None => Err(unreadable()),
+    }
+}
+
+/// The messages for the second try of a JSON call: the call's, the unreadable reply, `check-retry`.
+pub(crate) fn json_retry(messages: &[LlmMessage], unreadable_reply: &str) -> ApiResult<Vec<LlmMessage>> {
+    tracing::debug!("JSON reply unreadable, retrying once");
+    let mut again = messages.to_vec();
+    again.push(LlmMessage::new(Role::Assistant, unreadable_reply.to_string()));
+    again.push(cairn_core::prompts::check_retry()?);
+    Ok(again)
+}
+
+/// The error kind of [`UNREADABLE`]: the second reply of a JSON call couldn't be read either.
+pub(crate) fn unreadable() -> ApiError {
+    ApiError {
+        kind: UNREADABLE.into(),
+        message: "The model's answer couldn't be read, even after asking again.".into(),
     }
 }
 
@@ -345,20 +376,23 @@ pub async fn context_size(sidecars: &Sidecars, resolved: &Resolved) -> Option<u3
 // ---------------------------------------------------------------- *Stop*
 
 /// Running work that *Stop* can end, by id: a stream id, or the assistant message of a chat job.
+/// Each start gets a new number, so a job that ends forgets only its own entry, never that of a
+/// newer job started under the same id.
 #[derive(Default)]
 pub struct Jobs {
-    running: Mutex<HashMap<String, AbortHandle>>,
+    running: Mutex<HashMap<String, (u64, AbortHandle)>>,
+    started: AtomicU64,
 }
 
 impl Jobs {
-    fn lock(&self) -> std::sync::MutexGuard<'_, HashMap<String, AbortHandle>> {
+    fn lock(&self) -> std::sync::MutexGuard<'_, HashMap<String, (u64, AbortHandle)>> {
         self.running.lock().unwrap_or_else(|e| e.into_inner())
     }
 
     /// Ends the job; `false` when nothing with that id is running.
     pub fn cancel(&self, id: &str) -> bool {
         match self.lock().remove(id) {
-            Some(handle) => {
+            Some((_, handle)) => {
                 handle.abort();
                 true
             }
@@ -370,20 +404,43 @@ impl Jobs {
         self.lock().contains_key(id)
     }
 
+    /// Stops a job running under `id`, then spawns `task` and records it under a new number. The
+    /// lock is held until the entry is in, so a task that ends at once still finds it.
+    fn start<T: Send + 'static>(
+        &self,
+        id: &str,
+        task: impl FnOnce(u64) -> tokio::task::JoinHandle<T>,
+    ) -> (u64, tokio::task::JoinHandle<T>) {
+        self.cancel(id);
+        let number = self.started.fetch_add(1, Ordering::Relaxed);
+        let mut running = self.lock();
+        let handle = task(number);
+        running.insert(id.to_string(), (number, handle.abort_handle()));
+        (number, handle)
+    }
+
+    /// Forgets the job started as `number`, unless a newer job has taken its id.
+    fn forget(&self, id: &str, number: u64) {
+        let mut running = self.lock();
+        if running.get(id).is_some_and(|(n, _)| *n == number) {
+            running.remove(id);
+        }
+    }
+
     /// Starts `work` in the background under `id` (a job with the same id is stopped first) and
     /// forgets it when it ends. Aborting drops the future, which also cancels a running stream.
     pub fn spawn<F>(self: &Arc<Self>, id: String, work: F)
     where
         F: Future<Output = ()> + Send + 'static,
     {
-        self.cancel(&id);
         let jobs = Arc::clone(self);
         let key = id.clone();
-        let task = tokio::spawn(async move {
-            work.await;
-            jobs.lock().remove(&key);
+        self.start(&id, move |number| {
+            tokio::spawn(async move {
+                work.await;
+                jobs.forget(&key, number);
+            })
         });
-        self.lock().insert(id, task.abort_handle());
     }
 
     /// Runs `work` and waits for it; with an id, *Stop* (`cancel_job(id)`) ends it and the result is
@@ -396,11 +453,9 @@ impl Jobs {
         let Some(id) = id else {
             return work.await;
         };
-        self.cancel(&id);
-        let task = tokio::spawn(work);
-        self.lock().insert(id.clone(), task.abort_handle());
+        let (number, task) = self.start(&id, |_| tokio::spawn(work));
         let result = task.await;
-        self.lock().remove(&id);
+        self.forget(&id, number);
         match result {
             Ok(r) => r,
             Err(e) if e.is_cancelled() => Err(cancelled()),
@@ -415,4 +470,34 @@ impl Jobs {
 #[specta::specta]
 pub async fn cancel_job(jobs: State<'_, Arc<Jobs>>, id: String) -> ApiResult<bool> {
     Ok(jobs.cancel(&id))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A job replaced by a new one under the same id must not forget the new one when it ends,
+    /// or *Stop* would find nothing to stop.
+    #[tokio::test]
+    async fn a_replaced_job_leaves_its_successor_stoppable() {
+        let jobs = Arc::new(Jobs::default());
+        let run = |jobs: &Arc<Jobs>| {
+            let jobs = Arc::clone(jobs);
+            tokio::spawn(async move {
+                jobs.run(Some("job".into()), std::future::pending::<ApiResult<()>>())
+                    .await
+            })
+        };
+        let first = run(&jobs);
+        while !jobs.is_running("job") {
+            tokio::task::yield_now().await;
+        }
+        let second = run(&jobs);
+        // The second start stops the first, which then ends.
+        assert_eq!(first.await.unwrap().unwrap_err().kind, CANCELLED);
+        assert!(jobs.is_running("job"));
+        assert!(jobs.cancel("job"));
+        assert_eq!(second.await.unwrap().unwrap_err().kind, CANCELLED);
+        assert!(!jobs.is_running("job"));
+    }
 }

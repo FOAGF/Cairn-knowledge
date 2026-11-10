@@ -9,12 +9,14 @@
 #
 # Uploads build/Cairn_<v>_amd64.deb, Cairn-lite_<v>_amd64.deb, Cairn-<v>-windows-x64.zip,
 # Cairn-<v>-windows-x64-lite.zip and SHA256SUMS (written here). Never the AppImage (D-80).
-# Refuses when: the version numbers disagree, or the version table has no row for this version; a file is
-# missing or older than the last commit; the working tree has changes; the commit is not on the `origin`
-# remote; a published release already has this version's tag.
-# The draft: tag v<version> on the current commit, in the GitHub repository of `origin` (CAIRN_PUBLISH_REPO=
-# owner/name overrides it, e.g. for an SSH host alias), a pre-release while the version is 0.x. A draft of
-# the same version (a rehearsal) is updated in place: notes rewritten, files replaced.
+# Refuses when: the version numbers disagree, or the version table has no row for this version; the commit
+# isn't tagged v<version> (packages from an untagged commit carry another version, D-90: tag, then build); a
+# file is missing or older than the last commit; the working tree has changes; the commit is not on the
+# `origin` remote; a published release already has this version's tag.
+# The draft: tag v<version> on the current commit (made on GitHub when the draft is published), in the
+# GitHub repository of `origin` (CAIRN_PUBLISH_REPO=
+# owner/name overrides it, e.g. for an SSH host alias), a pre-release while the version is 0.x. A draft of the
+# same version (a rehearsal) is updated in place: notes rewritten, files replaced.
 # Notes: the first release gets README's introduction; a later one the version table's rows
 # (docs/requirements.md §9.4) since the last published release, newest first. Then README's download
 # section for this version and how to check a file against SHA256SUMS.
@@ -22,23 +24,16 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO="$(cd "$HERE/.." && pwd)"
+. "$HERE/common.sh"
 cd "$REPO"
 
 BUILD="$REPO/build"
-VERSION="$(python3 -I -c 'import json;print(json.load(open("src-tauri/tauri.conf.json"))["version"])')"
 TAG="v$VERSION"
 FILES=("Cairn_${VERSION}_amd64.deb" "Cairn-lite_${VERSION}_amd64.deb"
        "Cairn-${VERSION}-windows-x64.zip" "Cairn-${VERSION}-windows-x64-lite.zip")
 MAKES=("make release-deb" "make release-deb-lite" "make release-windows" "make release-windows-lite")
 NOTES="$BUILD/release-notes-$VERSION.md"
 log() { echo "[publish] $*"; }
-
-ask() {   # ask "question" -> 0 for yes; anything but y/yes is no
-    local answer=""
-    read -r -p "$1 [y/N] " answer || true
-    case "$answer" in y|Y|yes|YES|Yes) return 0 ;; *) return 1 ;; esac
-}
 
 step_check() {
     local problems=() i f cargo app since rebuild=false
@@ -50,6 +45,9 @@ step_check() {
     grep -q "^| $VERSION |" docs/requirements.md \
         || problems+=("docs/requirements.md §9.4 has no row for $VERSION (every release adds one; the notes come from it)")
     [ -z "$(git status --porcelain)" ] || problems+=("the working tree has changes: commit them, then build the packages again")
+    # D-90: a build is named with the version of its commit, and only a commit tagged v<version> gives <version>.
+    git tag --points-at HEAD | grep -qxF "$TAG" \
+        || problems+=("this commit isn't tagged $TAG, so its packages are named $("$HERE/version.sh"): tag it (git tag $TAG), then build the packages again")
     # A package built before the last commit may hold other code than the tag it is published under.
     since="$(git log -1 --format=%ct)"
     for i in "${!FILES[@]}"; do
@@ -196,6 +194,6 @@ case "${1:-all}" in
         last="${2:-}"
         if [ -z "$last" ]; then step_remote; last="$(last_published)"; fi
         out="$(mktemp)"; step_notes "$last" "$out"; cat "$out"; rm -f "$out" ;;
-    -h|--help|help) sed -n '2,21p' "${BASH_SOURCE[0]}" ;;
+    -h|--help|help) sed -n '2,23p' "${BASH_SOURCE[0]}" ;;
     *) echo "unknown step '$1'; try: all check notes" >&2; exit 2 ;;
 esac

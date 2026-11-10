@@ -65,7 +65,7 @@ function insertImage(view: EditorView, file: File, pos: number, pageCategoryId: 
     (markdown) => swap(markdown + '\n'),
     (e) => {
       swap('')
-      toast.error(getT().editor.image.saveFailed(e instanceof Error ? e.message : String(e)))
+      toast.error(getT().editor.image.saveFailed(errorMessage(e)))
     },
   )
 }
@@ -152,9 +152,11 @@ function fileDropListeners(view: EditorView, pageCategory: () => string | undefi
  * Keeps a key press inside the editor's box. On Linux, Cairn turns WebKitGTK's DMA-BUF renderer off
  * (src-tauri/src/main.rs), and that renderer repaints the whole window whenever a change reaches the
  * page's layout: about 25 ms on the owner's machine, so a held Backspace (a repeat every 30 ms) fell
- * behind and went on deleting after the key was released. The box is `contain: size layout`, a
- * boundary the page's layout stops at, with a height set from the editor's own height whenever that
- * changes (a line added or removed). Unlike `contain: paint`, it doesn't clip the editor's popups.
+ * behind and went on deleting after the key was released. The box has a fixed height, set from the
+ * editor's own height whenever that changes (a line added or removed), and `overflow: hidden`: to
+ * WebKit that is a boundary the page's layout stops at. The popups are `position: fixed`
+ * (CodeMirror's default), so the box doesn't clip them. Not `contain: size layout`, the same boundary:
+ * inside a card with a shadow it made every frame of scrolling the page twice as slow.
  * Returns the cleanup.
  */
 function followHeight(box: HTMLElement, view: EditorView): () => void {
@@ -162,7 +164,7 @@ function followHeight(box: HTMLElement, view: EditorView): () => void {
     box.style.height = `${view.dom.getBoundingClientRect().height}px`
   }
   sync()
-  box.style.contain = 'size layout style'
+  box.style.overflow = 'hidden'
   // Runs after layout and before paint, so the box never shows at an old height.
   const observer = new ResizeObserver(sync)
   observer.observe(view.dom)

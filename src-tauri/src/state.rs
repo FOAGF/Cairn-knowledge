@@ -1,12 +1,19 @@
 //! Shared app state: the open database. Commands reach it through `with_db`.
 
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use cairn_core::secrets::SecretStore;
 use cairn_core::startup;
 use cairn_core::{DataPaths, Db};
 
 use crate::error::{ApiError, ApiResult};
+
+/// Locks the database. A poisoned lock only means a core call panicked: its transaction was rolled
+/// back as it unwound (and the knowledge folder's journal with it), so the connection is still
+/// usable and the next command goes on, as the other locks of the app do.
+pub fn lock_db(db: &Mutex<Db>) -> MutexGuard<'_, Db> {
+    db.lock().unwrap_or_else(|e| e.into_inner())
+}
 
 pub struct AppState {
     /// `Err` holds the reason the database could not be opened; the UI still starts and shows it.
@@ -83,7 +90,7 @@ impl AppState {
         self.db
             .as_ref()
             .ok()
-            .and_then(|db| db.lock().ok())
+            .map(|db| lock_db(db))
             .and_then(|db| cairn_core::settings::get(db.conn()).ok())
             .map_or(5, |s| s.embedding_idle_timeout_min)
     }
@@ -94,7 +101,7 @@ impl AppState {
         self.db
             .as_ref()
             .ok()
-            .and_then(|db| db.lock().ok())
+            .map(|db| lock_db(db))
             .and_then(|db| cairn_core::knowledge::mode::storage(db.conn()).ok())
             .and_then(|s| s.root)
     }
@@ -105,6 +112,14 @@ impl AppState {
         self.db.as_ref().ok().cloned()
     }
 
+    /// The open database, or the error saying why it couldn't be opened.
+    pub fn db(&self) -> ApiResult<Arc<Mutex<Db>>> {
+        self.db.clone().map_err(|e| ApiError {
+            kind: "database".into(),
+            message: format!("The database could not be opened: {e}"),
+        })
+    }
+
     /// Like [`Self::with_db`], but no backup runs at the same time: for work that swaps the data
     /// files (an import, the dev reset). It waits for a backup in progress first.
     pub async fn with_db_exclusive<T, F>(&self, f: F) -> ApiResult<T>
@@ -112,17 +127,11 @@ impl AppState {
         T: Send + 'static,
         F: FnOnce(&mut Db) -> cairn_core::Result<T> + Send + 'static,
     {
-        let db = self.db_handle().ok_or_else(|| ApiError {
-            kind: "database".into(),
-            message: "The database could not be opened.".into(),
-        })?;
+        let db = self.db()?;
         tauri::async_runtime::spawn_blocking(move || {
             // The backup lock first, then the database lock: the order `backups::make` uses.
             let _no_backup = crate::backups::exclusive();
-            let mut guard = db
-                .lock()
-                .map_err(|_| ApiError::internal("database lock poisoned"))?;
-            f(&mut guard).map_err(ApiError::from)
+            f(&mut lock_db(&db)).map_err(ApiError::from)
         })
         .await
         .map_err(|e| ApiError::internal(e.to_string()))?
@@ -134,21 +143,9 @@ impl AppState {
         T: Send + 'static,
         F: FnOnce(&mut Db) -> cairn_core::Result<T> + Send + 'static,
     {
-        let db = self
-            .db
-            .as_ref()
-            .map_err(|e| ApiError {
-                kind: "database".into(),
-                message: format!("The database could not be opened: {e}"),
-            })?
-            .clone();
-        tauri::async_runtime::spawn_blocking(move || {
-            let mut guard = db
-                .lock()
-                .map_err(|_| ApiError::internal("database lock poisoned"))?;
-            f(&mut guard).map_err(ApiError::from)
-        })
-        .await
-        .map_err(|e| ApiError::internal(e.to_string()))?
+        let db = self.db()?;
+        tauri::async_runtime::spawn_blocking(move || f(&mut lock_db(&db)).map_err(ApiError::from))
+            .await
+            .map_err(|e| ApiError::internal(e.to_string()))?
     }
 }

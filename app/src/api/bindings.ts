@@ -27,8 +27,8 @@ export const commands = {
 	/**  A free task key for a new category's name (FR-PRJ-6). */
 	suggestCategoryKey: (name: string) => __TAURI_INVOKE<string>("suggest_category_key", { name }),
 	/**
-	 *  Development builds only: inserts the prototype's sample categories that the not-yet-migrated
-	 *  mock screens refer to. Insert-if-missing; never changes existing categories.
+	 *  Development builds only: inserts the sample categories that the dev seed's tasks and pages
+	 *  refer to. Insert-if-missing; never changes existing categories.
 	 */
 	devSeedCategories: (seeds: CategorySeed[]) => __TAURI_INVOKE<number>("dev_seed_categories", { seeds }),
 	getSettings: () => __TAURI_INVOKE<Settings>("get_settings"),
@@ -186,12 +186,6 @@ export const commands = {
 	 *  with `meaning.state = unavailable`.
 	 */
 	searchHybrid: (query: SearchQuery) => __TAURI_INVOKE<HybridResult>("search_hybrid", { query }),
-	/**
-	 *  *Find similar pages* (FR-RAG-SR-5): pages closest in meaning to `page_id` (score = cosine
-	 *  similarity, best first; `matchedBy = meaning`). Without the index, falls back to a keyword
-	 *  search on the title with `meaning.state = unavailable`.
-	 */
-	findSimilarPages: (pageId: string, limit: number | null) => __TAURI_INVOKE<HybridResult>("find_similar_pages", { pageId, limit }),
 	/**  Vector index progress (Settings › Search, FR-RAG-IX-5). Changes arrive as the `IndexProgress` event. */
 	getIndexProgress: () => __TAURI_INVOKE<IndexProgress>("get_index_progress"),
 	listConversations: () => __TAURI_INVOKE<Conversation[]>("list_conversations"),
@@ -207,7 +201,7 @@ export const commands = {
 	/**  Stops the conversation's running jobs, then deletes it with its messages and file texts. */
 	deleteConversation: (id: string) => __TAURI_INVOKE<null>("delete_conversation", { id }),
 	listMessages: (conversationId: string) => __TAURI_INVOKE<ChatMessage[]>("list_messages", { conversationId }),
-	/**  A message written by the UI: the user's question and the prototype's answers until M6. */
+	/**  A message written as given, without a job (the probes use it to set up a conversation). */
 	addMessage: (conversationId: string, input: NewMessage) => __TAURI_INVOKE<ChatMessage>("add_message", { conversationId, input }),
 	/**
 	 *  Card changes from the UI (*Review* → `in_review`, saved, discarded). Releasing the file
@@ -252,8 +246,9 @@ export const commands = {
 	/**  [`run_check`] as a command, cancellable with `input.job_id`. */
 	checkPage: (input: CheckInput) => __TAURI_INVOKE<CheckReport>("check_page", { input }),
 	/**
-	 *  FR-KN-DU-1: the draft's pieces (`chunking::split_page`) are embedded as documents and compared
-	 *  with the index (`vectors::similar_to_vectors`), across all categories; keyword search on the title
+	 *  FR-KN-DU-1: the draft's pieces, built as the indexer builds a saved page's
+	 *  (`vectors::draft_pieces`, glossary lines included), are embedded as documents and compared with
+	 *  the index (`vectors::similar_to_vectors`), across all categories; keyword search on the title
 	 *  while the index isn't ready. Ranked by `checks::rank_duplicates` with Settings › Knowledge
 	 *  "likely the same topic".
 	 */
@@ -346,6 +341,21 @@ export const commands = {
 	 *  content (NFR-SEC-3). Both are cut short and put on one line.
 	 */
 	logUiError: (message: string, screen: string) => __TAURI_INVOKE<null>("log_ui_error", { message, screen }),
+	/**  What the card shows; fetches nothing. */
+	news: () => __TAURI_INVOKE<NewsView>("news"),
+	/**
+	 *  Starts a fetch when the news is on and one is due (the first today), or always with `force`
+	 *  (*Refresh*, *Try again*). `language` is the interface language as the UI shows it (the
+	 *  setting may be "system", which only the UI can resolve). Returns at once.
+	 */
+	fetchNews: (language: Language, force: boolean) => __TAURI_INVOKE<NewsView>("fetch_news", { language, force }),
+	/**
+	 *  Records a task or page as opened (its page was shown, or it was picked from a suggestion
+	 *  list). No event: only the suggestion lists read it, each time they open.
+	 */
+	recordOpened: (kind: OpenedKind, id: string) => __TAURI_INVOKE<null>("record_opened", { kind, id }),
+	/**  The ids of the most recently opened tasks or pages, most recent first. */
+	recentlyOpened: (kind: OpenedKind, limit: number) => __TAURI_INVOKE<string[]>("recently_opened", { kind, limit }),
 	/**  Everything Home shows, in one call: counts, the Today list, the calendar's due counts. */
 	homeOverview: () => __TAURI_INVOKE<HomeOverview>("home_overview"),
 	/**
@@ -577,6 +587,7 @@ export type AppFolder =
 "switchBackups";
 
 export type AppInfo = {
+	/**  The build's version (D-90): `1.0.0` from a tagged commit, `1.0.0-47-g3bb7870` after it. */
 	version: string,
 	/**  When this build was made, in UTC (RFC 3339), for Settings › About (UI-SET-5). */
 	buildTime: string | null,
@@ -1062,6 +1073,8 @@ export type Entity = "categories" | "settings" |
 "conversations" | 
 /**  The backup list and the *Last backup* line (M7). */
 "backups" | 
+/**  The tech news on Home (FR-HOME-7). */
+"news" | 
 /**  Everything changed, e.g. after an import. */
 "all";
 
@@ -1588,7 +1601,7 @@ export type ModelConfig = {
 export type ModelInstall = 
 /**  Part of the package (the full packages, or a development setup). */
 "bundled" | 
-/**  Added in Settings › Search (download or file); can be removed. */
+/**  Added in Settings › Models & defaults (download or file); can be removed. */
 "added" | "notInstalled";
 
 export type ModelPatch = {
@@ -1708,7 +1721,7 @@ export type NewPage = {
 	sourceInfo?: string | null,
 	origin?: PageOrigin | null,
 	originTaskId?: string | null,
-	/**  Default `not_checked`; the (simulated until M5) save pipeline may pass `checked`. */
+	/**  Default `not_checked`; the save pipeline may pass `checked`. */
 	checkStatus?: CheckStatus | null,
 };
 
@@ -1731,6 +1744,39 @@ export type NewTask = {
 	labels?: string[] | null,
 	dueDate?: string | null,
 };
+
+/**  What the card shows. A missing or damaged file is "nothing fetched yet". */
+export type NewsState = {
+	/**  The last fetch that worked (UTC, RFC 3339). */
+	fetchedAt?: string | null,
+	/**  The local day of the last try, worked or not: the daily fetch runs once a day. */
+	triedOn?: string | null,
+	/**  The topics and the model of the stories shown. */
+	topics?: string,
+	modelLabel?: string | null,
+	stories?: NewsStory[],
+	/**  Why the last try failed; cleared by the next fetch that works. The stories stay. */
+	error?: string | null,
+};
+
+export type NewsStory = {
+	title: string,
+	/**  One sentence. */
+	summary: string,
+	/**  The site or publication. */
+	source: string,
+	/**  `YYYY-MM-DD`, or empty when the page gave none. */
+	date: string,
+	/**  An `http(s)` address, opened in the system browser. */
+	url: string,
+};
+
+export type NewsView = {
+	news: NewsState,
+	fetching: boolean,
+};
+
+export type OpenedKind = "task" | "page";
 
 /**
  *  A knowledge page (§5.1). `body` is Markdown; page mentions are `[Title](page:<id>)`,
@@ -2095,6 +2141,15 @@ export type Settings = {
 	/**  Model ids arrive with providers in M4; plain strings for now. */
 	defaultModelId: string | null,
 	ocrModelId: string | null,
+	/**
+	 *  FR-LLM-AS-6, D-91: answers web messages the conversation's model can't, and fetches the
+	 *  tech news; `None` = the only model ticked *Web search*, if there is exactly one.
+	 */
+	webSearchModelId: string | null,
+	/**  FR-HOME-7, D-92: the *Tech news* card on Home. */
+	techNews: boolean,
+	/**  FR-HOME-7: what the news covers, as typed. */
+	newsTopics: string,
 	/**  FR-KN-ED-4: pages above this many words get a warning. */
 	wordWarningThreshold: number,
 	/**  FR-KN-UP-2: files above this size (MB) get a warning. */
@@ -2143,13 +2198,16 @@ export type Settings = {
 	switchBackupWarnGb: number | null,
 };
 
-/**  Only the fields that are `Some` change. For the two model ids, an empty string clears the choice. */
+/**  Only the fields that are `Some` change. For the model ids, an empty string clears the choice. */
 export type SettingsPatch = {
 	userName?: string | null,
 	theme?: Theme | null,
 	language?: Language | null,
 	defaultModelId?: string | null,
 	ocrModelId?: string | null,
+	webSearchModelId?: string | null,
+	techNews?: boolean | null,
+	newsTopics?: string | null,
 	wordWarningThreshold?: number | null,
 	largeFileWarningMB?: number | null,
 	duplicateScore?: number | null,
@@ -2386,7 +2444,10 @@ export type TaskSnapshot = {
 };
 
 export type TaskSortField = 
-/**  Soonest first; tasks without a due date last. */
+/**
+ *  Soonest first; tasks without a due date last. On the same day, and without a date, newest
+ *  first (D-93).
+ */
 "due" | 
 /**  High first. */
 "priority" | "created" | "updated" | 

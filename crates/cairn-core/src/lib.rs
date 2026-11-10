@@ -9,6 +9,9 @@ pub mod migrations;
 pub mod paths;
 pub mod util;
 
+#[cfg(test)]
+mod test_util;
+
 // Feature areas.
 pub mod assistant;
 pub mod attachments;
@@ -26,6 +29,8 @@ pub mod hybrid;
 pub mod knowledge;
 pub mod lint;
 pub mod mentions;
+pub mod news;
+pub mod opened;
 pub mod merging;
 pub mod categories;
 pub mod prompts;

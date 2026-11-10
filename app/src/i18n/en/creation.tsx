@@ -45,7 +45,6 @@ export const creation = {
   matches: {
     mergeIntoThis: 'Merge into this page',
     looking: 'Looking for similar pages…',
-    offline: 'Keyword + local embeddings',
     none: 'No similar pages found. This looks new.',
     likely: 'Likely the same topic',
     related: 'Related',

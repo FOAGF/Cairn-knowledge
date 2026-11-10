@@ -58,7 +58,6 @@ export const shared = {
     partial: (ready: number, items: number) => `Search by meaning covers ${ready} of ${items} items (indexing…)`,
     unavailable: 'Search by meaning unavailable — keyword results only',
   },
-  placeholder: 'This screen is being built.',
   savedAs: {
     rules: 'Pages are files, so their names follow Windows’ rules: < > : " / \\ | ? * become -, and dots and spaces at the start and end are dropped.',
     label: (name: ReactNode) => <>Saved as: {name}</>,

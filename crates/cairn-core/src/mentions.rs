@@ -8,7 +8,7 @@ use std::collections::BTreeSet;
 use rusqlite::{Connection, OptionalExtension, params};
 
 use crate::knowledge::{Backlink, MentionSource, MentionTarget};
-use crate::tasks::enum_str;
+use crate::util::enum_str;
 use crate::{CoreError, Result, tasks};
 
 // ---------------------------------------------------------------- parsing
@@ -24,21 +24,22 @@ pub(crate) fn map_prose(text: &str, mut f: impl FnMut(&str) -> String) -> String
         let marker = fence_marker(trimmed);
         if let Some((c, n)) = fence {
             out.push_str(line);
-            if indent <= 3 {
-                if let Some((c2, n2)) = marker {
-                    if c2 == c && n2 >= n && trimmed.trim_start_matches(c).trim().is_empty() {
-                        fence = None;
-                    }
-                }
+            if indent <= 3
+                && let Some((c2, n2)) = marker
+                && c2 == c
+                && n2 >= n
+                && trimmed.trim_start_matches(c).trim().is_empty()
+            {
+                fence = None;
             }
             continue;
         }
-        if indent <= 3 {
-            if let Some(m) = marker {
-                fence = Some(m);
-                out.push_str(line);
-                continue;
-            }
+        if indent <= 3
+            && let Some(m) = marker
+        {
+            fence = Some(m);
+            out.push_str(line);
+            continue;
         }
         map_inline(line, &mut f, &mut out);
     }
@@ -133,13 +134,14 @@ fn for_each_task_mention(s: &str, mut f: impl FnMut(&str, usize, usize)) {
         if i < skip_to {
             continue;
         }
-        if c == '#' && prev.is_none_or(|p| !is_word(p) && p != '&') {
-            if let Some((key, len)) = task_key_at(&s[i + 1..]) {
-                f(key, i, i + 1 + len);
-                skip_to = i + 1 + len;
-                prev = key.chars().last();
-                continue;
-            }
+        if c == '#'
+            && prev.is_none_or(|p| !is_word(p) && p != '&')
+            && let Some((key, len)) = task_key_at(&s[i + 1..])
+        {
+            f(key, i, i + 1 + len);
+            skip_to = i + 1 + len;
+            prev = key.chars().last();
+            continue;
         }
         prev = Some(c);
     }
@@ -155,17 +157,17 @@ fn for_each_page_mention(s: &str, mut f: impl FnMut(&str, &str, usize, usize)) {
             .find(|c: char| c == ')' || c.is_whitespace())
             .unwrap_or(s.len() - id_start);
         let id_end = id_start + id_len;
-        if s[id_end..].starts_with(')') && id_len > 0 {
-            if let Some(open) = s[..close_title].rfind('[') {
-                if !s[open + 1..close_title].contains('\n') {
-                    f(
-                        &s[open + 1..close_title],
-                        &s[id_start..id_end],
-                        open,
-                        id_end + 1,
-                    );
-                }
-            }
+        if s[id_end..].starts_with(')')
+            && id_len > 0
+            && let Some(open) = s[..close_title].rfind('[')
+            && !s[open + 1..close_title].contains('\n')
+        {
+            f(
+                &s[open + 1..close_title],
+                &s[id_start..id_end],
+                open,
+                id_end + 1,
+            );
         }
         from = id_end.max(id_start);
     }

@@ -4,7 +4,7 @@ use rusqlite::Connection;
 use super::query::list_on;
 use super::workdays::{blocked_working_days, working_days_between};
 use super::*;
-use crate::categories::{self, NewCategory, CategoryColor};
+use crate::categories;
 
 fn d(s: &str) -> NaiveDate {
     NaiveDate::parse_from_str(s, "%Y-%m-%d").unwrap()
@@ -22,17 +22,7 @@ fn env() -> Env {
     let dir = tempfile::tempdir().unwrap();
     let db = Db::open_at(dir.path()).unwrap();
     let mk = |name: &str, key: &str| {
-        categories::create(
-            db.conn(),
-            NewCategory {
-                name: name.into(),
-                key: key.into(),
-                description: String::new(),
-                color: CategoryColor::preset("blue"),
-            },
-        )
-        .unwrap()
-        .id
+        crate::test_util::category(db.conn(), name, key)
     };
     let a = mk("Alpha", "AAA");
     let b = mk("Beta", "BBB");
@@ -1155,6 +1145,40 @@ fn list_text_search() {
 }
 
 #[test]
+fn due_sort_puts_newer_tasks_first_on_the_same_day_and_without_a_date() {
+    // D-93
+    let mut e = env();
+    let a = e.a.clone();
+    let mut mk = |title: &str, due: Option<&str>| {
+        create(
+            &mut e.db,
+            NewTask {
+                category_id: a.clone(),
+                title: title.into(),
+                due_date: due.map(Into::into),
+                ..Default::default()
+            },
+        )
+        .unwrap()
+        .key
+    };
+    let undated_old = mk("undated old", None);
+    let day_old = mk("day old", Some("2026-10-20"));
+    let soon = mk("soon", Some("2026-10-15"));
+    let undated_new = mk("undated new", None);
+    let day_new = mk("day new", Some("2026-10-20"));
+    let listed = list_on(e.db.conn(), &TaskFilter::default(), d("2026-10-14"))
+        .unwrap()
+        .into_iter()
+        .map(|t| t.key)
+        .collect::<Vec<_>>();
+    assert_eq!(
+        listed,
+        vec![soon, day_new, day_old, undated_new, undated_old]
+    );
+}
+
+#[test]
 fn list_sorting_and_limit() {
     let f = fixture();
     let s = |sort, descending: bool| {
@@ -1604,7 +1628,7 @@ fn seed_is_idempotent_and_never_overwrites() {
     let n = dump(&e);
     assert_eq!(
         &n[..5],
-        &[2, 4, 1, 1, 3][..5].iter().map(|x| *x).collect::<Vec<_>>()[..],
+        &[2, 4, 1, 1, 3],
         "edit added today's version only"
     );
     // New tasks continue after the highest seeded number.

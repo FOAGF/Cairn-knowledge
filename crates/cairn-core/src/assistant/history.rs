@@ -13,8 +13,6 @@
 //!   conversation's budget, up to the model's limit ([`widened`]).
 //! - [`shown_items`]: the items shown under the latest assistant message (its cited chips in
 //!   order, or its find rows), for `cited` / `refs` and as pinned sources.
-//!
-//! Owned by the M6 answers agent.
 
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
@@ -28,8 +26,6 @@ use crate::chunking::estimate_tokens;
 use crate::conversations::{ChatMessage, ChatRole, StepState};
 use crate::prompts::Role;
 
-/// Percent left below which the composer shows the amber warning.
-pub const WARN_BELOW_PERCENT: u8 = 25;
 /// Percent left below which *Widen for this conversation* is offered.
 pub const WIDEN_BELOW_PERCENT: u8 = 10;
 

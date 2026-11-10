@@ -295,7 +295,7 @@ async fn missing_python_or_model_is_unavailable_with_a_hint() {
     // No model is "not installed" (a lite package, D-82), not a fault; no process is started.
     let e = sc.embed_query("x").await.unwrap_err();
     assert_eq!(e.kind, cairn_lib::sidecar::NOT_INSTALLED);
-    assert!(e.message.contains("Settings › Search"), "{}", e.message);
+    assert!(e.message.contains("Settings › Models & defaults"), "{}", e.message);
     assert_eq!(sc.status().embed.state, WorkerState::Stopped);
 
     let mut config = fake_config(Duration::from_secs(60));

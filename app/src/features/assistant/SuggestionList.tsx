@@ -3,7 +3,7 @@ import { FileText } from 'lucide-react'
 import { useT } from '@/i18n'
 import { cn } from '@/lib/utils'
 
-export type Suggestion = { kind: 'task'; key: string; title: string } | { kind: 'page'; id: string; title: string }
+export type Suggestion = { kind: 'task'; id: string; key: string; title: string } | { kind: 'page'; id: string; title: string }
 
 export function SuggestionList({
   kind,

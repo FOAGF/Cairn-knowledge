@@ -442,7 +442,9 @@ fn read_import(conn: &Connection, input: &FolderImportInput) -> Result<Vec<Sourc
             let name = clean_group_name(name)?;
             check_group_name_free(conn, &input.category_id, &name, None)?;
         }
-        (_, Some(g)) if !g.is_empty() => check_group(conn, &input.category_id, g)?,
+        (_, Some(g)) if !g.is_empty() => {
+            check_group(conn, &input.category_id, g)?;
+        }
         _ => {}
     }
     let root = PathBuf::from(&input.folder);
@@ -969,20 +971,9 @@ mod tests {
 
     // ------------------------------------------------------------ with a database
 
-    use crate::categories::{CategoryColor, NewCategory};
 
     fn category(db: &Db, name: &str, key: &str) -> String {
-        categories::create(
-            db.conn(),
-            NewCategory {
-                name: name.into(),
-                key: key.into(),
-                description: String::new(),
-                color: CategoryColor::preset("blue"),
-            },
-        )
-        .unwrap()
-        .id
+        crate::test_util::category(db.conn(), name, key)
     }
 
     fn page(db: &mut Db, category: &str, group: Option<&str>, title: &str, body: &str) -> Page {

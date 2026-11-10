@@ -42,6 +42,14 @@ build/
 
 The other packages (the Debian package and the lite packages, see Advanced) go next to them. Git ignores `build/`.
 
+`<version>` is the version of the commit you build from:
+
+- a commit tagged `v1.0.0` (a release) builds as `1.0.0`;
+- a later commit builds as `1.0.0-47-g3bb7870`: the newest release tag, the number of commits since it, and `g` with the commit's short id (what `git describe` prints);
+- with uncommitted changes, `-dirty` is added: `1.0.0-47-g3bb7870-dirty`.
+
+The same version shows in Settings › About and in your exports and backups. `packaging/version.sh` prints the version a build would get now.
+
 `make clean` empties `build/` but keeps `build/cache`, so the next build doesn't download anything again.
 
 ### Install and update
@@ -115,7 +123,7 @@ Two things stay outside `build/`:
 
 ### Full and lite packages
 
-Each package also comes in a **lite** version without the search model, about 160 MB smaller (NFR-INS-1b). Search by words works as usual. Search by meaning needs the model, which Settings › Search can download or add from a file.
+Each package also comes in a **lite** version without the search model, about 160 MB smaller (NFR-INS-1b). Search by words works as usual. Search by meaning needs the model, which Settings › Models & defaults can download or add from a file.
 
 - A lite package's NOTICE leaves out the Gemma terms, and its self-test expects no model.
 - Full and lite files sit side by side in `build/`: building one keeps the other.
@@ -123,7 +131,7 @@ Each package also comes in a **lite** version without the search model, about 16
 
 ### Installing the AppImage
 
-`make install` copies the AppImage to `~/Applications/Cairn-<version>.AppImage` and points `~/Applications/Cairn.AppImage` at it. It adds Cairn to the app menu with its icon, and checks that libfuse2 is installed (it prints the `apt` command if not). It never uses sudo.
+`make install` copies the AppImage built last to `~/Applications/Cairn-<version>.AppImage` and points `~/Applications/Cairn.AppImage` at it. It adds Cairn to the app menu with its icon, and checks that libfuse2 is installed (it prints the `apt` command if not). It never uses sudo.
 
 - **Updating:** build the new version and run `make install` again. The previous version stays next to it as a fallback; older ones are removed. The menu entry uses `Cairn.AppImage`, so it never changes.
 - **Lite:** `make install-lite` installs the lite AppImage as `~/Applications/Cairn-lite-<version>.AppImage`. Full and lite share the `Cairn.AppImage` link, the menu entry and your data, so the one installed last is the one that starts. Each keeps its own previous version.
@@ -148,9 +156,10 @@ The zip is a portable folder: `cairn.exe`, the Windows Python bundle, the model,
 For the maintainer. `make publish` (`packaging/publish.sh`) makes a **draft** GitHub release; you publish it on GitHub after looking it over.
 
 1. Bump the version (`Cargo.toml`, `src-tauri/tauri.conf.json`, `app/package.json`) and add its row to the version table in `docs/requirements.md` §9.4. Commit and push.
-2. Build the four packages from that commit: `make release-for-publish` (or one at a time: `make release-deb`, `make release-deb-lite`, `make release-windows`, `make release-windows-lite`). Check the Windows zip on Windows.
-3. Run `make publish`. It checks that every package is there and newer than the last commit, that nothing is left uncommitted and that the commit is on GitHub. Then it writes `build/SHA256SUMS` and the notes (`build/release-notes-<version>.md`), shows them with the files, and asks before uploading.
-4. Open the draft it prints, look it over and press *Publish release*. The tag `v<version>` is made then.
+2. Tag that commit on this computer: `git tag v<version>`. Only a tagged commit builds as `<version>`; any other gets a version like `<version>-3-g1a2b3c4`. You don't push the tag: GitHub publishes it with the release. To build from another commit instead, move it with `git tag -f v<version>`.
+3. Build the four packages from that commit: `make release-for-publish` (or one at a time: `make release-deb`, `make release-deb-lite`, `make release-windows`, `make release-windows-lite`). Check the Windows zip on Windows.
+4. Run `make publish`. It checks that every package is there and newer than the last commit, that the commit is tagged `v<version>`, that nothing is left uncommitted and that the commit is on GitHub. Then it writes `build/SHA256SUMS` and the notes (`build/release-notes-<version>.md`), shows them with the files, and asks before uploading.
+5. Open the draft it prints, look it over and press *Publish release*. GitHub publishes the tag `v<version>` then.
 
 - **The draft:** tag `v<version>`, in the GitHub repository of the `origin` remote (`CAIRN_PUBLISH_REPO=owner/name` overrides it), marked as a pre-release while the version is 0.x. From 1.0 on, a pre-release made from `develop` (CONTRIBUTING.md, "Branches") must be marked by hand: tick *Set as a pre-release* on the draft before publishing it. Running it again for the same version updates the draft; a published release is never changed.
 - **The notes:** the first release gets the README's introduction; later ones the version table's rows since the last published release. Then the README's download section for this version. Preview them with `packaging/publish.sh notes [last published version]`.

@@ -21,8 +21,6 @@
 //!
 //! - Status changes go through a callback (`StatusCallback`), so the link is tested without a Tauri
 //!   `AppHandle` (`src-tauri/tests/sidecar_link.rs` runs it against a fake sidecar).
-//!
-//! Owned by the M4 sidecar-link agent.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -98,6 +96,9 @@ pub struct SidecarStatus {
     pub embed: WorkerStatus,
 }
 
+/// Pieces per `embed.documents` call outside the indexer (PROTOCOL.md "Concurrency").
+pub const EMBED_BATCH: usize = 8;
+
 /// A failed sidecar call. `kind` is one of PROTOCOL.md's error kinds, or `unavailable` when the
 /// process could not be started or died.
 #[derive(Debug, Clone)]
@@ -107,15 +108,21 @@ pub struct SidecarError {
     pub hint: Option<String>,
 }
 
+impl SidecarError {
+    /// The message, with the hint in brackets when there is one.
+    pub fn detail(self) -> String {
+        match self.hint {
+            Some(h) if !h.is_empty() => format!("{} ({h})", self.message),
+            _ => self.message,
+        }
+    }
+}
+
 impl From<SidecarError> for ApiError {
     fn from(e: SidecarError) -> Self {
-        let message = match e.hint {
-            Some(h) if !h.is_empty() => format!("{} ({h})", e.message),
-            _ => e.message,
-        };
         ApiError {
             kind: format!("ai_{}", e.kind),
-            message,
+            message: e.detail(),
         }
     }
 }
@@ -135,6 +142,21 @@ pub struct SidecarConfig {
     pub embed_threads: u32,
     /// How long the first `ping` of a new process may take (Python start, antivirus scans, …).
     pub start_timeout: Duration,
+}
+
+#[cfg(test)]
+impl SidecarConfig {
+    /// The fake sidecar (`tests/fixtures/fake_sidecar.py`) the command tests run against.
+    pub(crate) fn fake() -> SidecarConfig {
+        SidecarConfig {
+            python: Some(PathBuf::from("python3")),
+            script_args: vec![concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/fake_sidecar.py").into()],
+            model_dir: Some(PathBuf::from("/nonexistent/model")),
+            idle_timeout: Duration::from_secs(60),
+            embed_threads: 1,
+            start_timeout: Duration::from_secs(10),
+        }
+    }
 }
 
 impl SidecarConfig {
@@ -728,8 +750,18 @@ impl Sidecars {
         decode_vector(result.get("vector"))
     }
 
+    /// [`Self::embed_documents`] for any number of pieces, in batches of [`EMBED_BATCH`].
+    pub async fn embed_all(&self, items: Vec<(String, String)>) -> Result<Vec<Vec<f32>>, SidecarError> {
+        let mut vectors = Vec::with_capacity(items.len());
+        for batch in items.chunks(EMBED_BATCH) {
+            vectors.extend(self.embed_documents(batch.to_vec()).await?);
+        }
+        Ok(vectors)
+    }
+
     /// Vectors for document pieces `(title, text)`, in the same order. Callers send small batches
-    /// (at most 8) so a search never waits long behind indexing (PROTOCOL.md "Concurrency").
+    /// (at most [`EMBED_BATCH`]) so a search never waits long behind indexing (PROTOCOL.md
+    /// "Concurrency").
     pub async fn embed_documents(
         &self,
         items: Vec<(String, String)>,
@@ -776,9 +808,9 @@ impl Sidecars {
         let model_dir = config.model_dir.as_ref().ok_or_else(|| SidecarError {
             kind: NOT_INSTALLED.into(),
             message: if cfg!(debug_assertions) {
-                "The search model isn't installed. Run scripts/setup-sidecar-dev.sh, set CAIRN_EMBED_MODEL_DIR, or add it in Settings › Search."
+                "The search model isn't installed. Run scripts/setup-sidecar-dev.sh, set CAIRN_EMBED_MODEL_DIR, or add it in Settings › Models & defaults."
             } else {
-                "Search by meaning isn't installed. It can be added in Settings › Search."
+                "Search by meaning isn't installed. It can be added in Settings › Models & defaults."
             }
             .into(),
             hint: None,
@@ -812,8 +844,10 @@ fn decode_vector(value: Option<&Value>) -> Result<Vec<f32>, SidecarError> {
         return Err(bad_reply("vector has the wrong size"));
     }
     Ok(bytes
-        .chunks_exact(4)
-        .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|c| f32::from_le_bytes(*c))
         .collect())
 }
 

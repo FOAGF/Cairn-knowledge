@@ -31,7 +31,7 @@ export const searchModel: Messages['searchModel'] = {
   noticeDismiss: '不再提示',
   lineDownloading: (pct) => `正在下载搜索模型… ${pct}%`,
   lineChecking: (pct) => `正在检查搜索模型… ${pct}%`,
-  lineFailed: '无法添加搜索模型。请查看“设置 › 搜索”。',
+  lineFailed: '无法添加搜索模型。请查看“设置 › 模型与默认设置”。',
   compact: (pct) => `搜索模型 ${pct}%`,
   compactFailed: '搜索模型未添加',
   ready: '语义搜索已可用，现在开始编入索引。',

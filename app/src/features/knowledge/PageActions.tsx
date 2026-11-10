@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useT } from '@/i18n'
 import { ExportDialog } from './ExportDialog'
-import { ConfirmDialog } from './GroupDialogs'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 
 function Action({ label, children }: { label: string; children: React.ReactElement }) {
   return (

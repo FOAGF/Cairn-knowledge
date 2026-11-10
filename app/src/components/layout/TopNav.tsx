@@ -35,7 +35,9 @@ export function TopNav() {
   const t = useT()
 
   return (
-    <header className="sticky top-0 z-30 border-b bg-surface/90 backdrop-blur">
+    // Opaque, without a backdrop blur: WebKitGTK sometimes didn't redraw the blur after the window
+    // came back from minimised, and the page showed through the bar.
+    <header className="sticky top-0 z-30 border-b bg-surface">
       <div className="mx-auto flex h-16 max-w-[1480px] items-center gap-6 px-6">
         <NavLink to="/" className="flex items-center gap-2">
           <CairnLogo className="size-8" />
@@ -65,7 +67,7 @@ export function TopNav() {
         </nav>
 
         <div className="ml-auto flex items-center gap-1">
-          {/* FR-RAG-EM-3, D-82: the search model being added, or a failure; links to Settings › Search */}
+          {/* FR-RAG-EM-3, D-82: the search model being added, or a failure; links to Settings › Models & defaults */}
           <SearchModelTaskLine compact className="mr-3 min-w-36 max-w-56" />
           <Button
             variant="outline"

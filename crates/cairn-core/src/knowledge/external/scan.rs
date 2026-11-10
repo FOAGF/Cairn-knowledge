@@ -37,7 +37,6 @@
 //! write a daily version and activity like any change.
 
 use std::collections::{BTreeSet, HashMap, HashSet};
-use std::path::Path;
 use std::time::SystemTime;
 
 use rusqlite::{Connection, OptionalExtension, params};
@@ -52,7 +51,7 @@ use super::{
 };
 use crate::knowledge::{self, CheckStatus, Page, PageOrigin};
 use crate::tasks::Stamp as Clock;
-use crate::util::new_id;
+use crate::util::{exists, has_id, new_id};
 use crate::{CoreError, Db, Result};
 
 /// The most plan items one transaction applies (D-72: a few hundred files at a time).
@@ -538,7 +537,7 @@ fn in_scope(scope: &Scope, path: &str) -> bool {
 
 /// A top-level folder that can't be a category.
 fn not_a_category(folder: &str) -> bool {
-    folder.eq_ignore_ascii_case("attachments")
+    super::is_attachments(folder)
 }
 
 fn read_file(ext: &Ext, path: &str, meta: &std::fs::Metadata) -> std::result::Result<Read, String> {
@@ -986,16 +985,6 @@ impl ScanJob {
 // ---------------------------------------------------------------- step 3: applying
 
 impl ScanPlan {
-    /// Items left to apply.
-    pub fn remaining(&self) -> usize {
-        self.folders.len() - self.folders_next + self.pages.len() - self.next
-    }
-
-    /// Whether the plan changes nothing.
-    pub fn is_empty(&self) -> bool {
-        self.folders.is_empty() && self.pages.is_empty()
-    }
-
     /// All items of the plan (the mention updates at the end come on top).
     pub fn total(&self) -> usize {
         self.folders.len() + self.pages.len()
@@ -1225,8 +1214,7 @@ fn reread(
 
 /// Drops the data of pages and groups whose files have been gone longer than [`TOMBSTONE_DAYS`].
 fn expire_tombstones(conn: &Connection) -> Result<()> {
-    let cutoff = (chrono::Utc::now() - chrono::Duration::days(TOMBSTONE_DAYS))
-        .to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+    let cutoff = crate::util::iso(chrono::Utc::now() - chrono::Duration::days(TOMBSTONE_DAYS));
     conn.execute("DELETE FROM removed_pages WHERE removed_at < ?1", [&cutoff])?;
     conn.execute("DELETE FROM removed_groups WHERE removed_at < ?1", [&cutoff])?;
     Ok(())
@@ -1263,10 +1251,7 @@ fn apply_folder(conn: &Connection, ext: &Ext, exact: &Exact, f: &FolderChange, s
             }
         }
         FolderChange::RenameGroup { id, path } => {
-            let exists = conn
-                .query_row("SELECT 1 FROM groups WHERE path = ?1", [path], |_| Ok(()))
-                .optional()?
-                .is_some();
+            let exists = exists(conn, "SELECT 1 FROM groups WHERE path = ?1", [path])?;
             if !exists {
                 let (category_id, parent_id) = store::place_of_dir(conn, path)?;
                 if let Some(category_id) = category_id {
@@ -1313,10 +1298,7 @@ fn revive_group(conn: &Connection, path: &str) -> Result<bool> {
     else {
         return Ok(false);
     };
-    let in_use = conn
-        .query_row("SELECT 1 FROM groups WHERE id = ?1", [&id], |_| Ok(()))
-        .optional()?
-        .is_some();
+    let in_use = has_id(conn, "groups", &id)?;
     let (category_id, parent_id) = store::place_of_dir(conn, path)?;
     let Some(category_id) = category_id.filter(|_| !in_use) else {
         return Ok(false);
@@ -1363,9 +1345,9 @@ fn bury(conn: &Connection, page: &Page) -> Result<()> {
             page.id,
             page.path,
             page.file_hash,
-            crate::tasks::enum_str(&page.origin),
+            crate::util::enum_str(&page.origin),
             page.origin_task_id,
-            crate::tasks::enum_str(&page.check_status),
+            crate::util::enum_str(&page.check_status),
             page.created_at,
             serde_json::to_string(&versions)?,
             serde_json::to_string(&links)?,
@@ -1402,10 +1384,10 @@ fn unbury(conn: &Connection, p: &mut Page) -> Result<Option<KeptRows>> {
         return Ok(None);
     };
     conn.execute("DELETE FROM removed_pages WHERE id = ?1", [&p.id])?;
-    if let Ok(o) = crate::tasks::parse_enum(0, &origin) {
+    if let Ok(o) = crate::util::parse_enum(0, &origin) {
         p.origin = o;
     }
-    if let Ok(c) = crate::tasks::parse_enum(0, &status) {
+    if let Ok(c) = crate::util::parse_enum(0, &status) {
         p.check_status = c;
     }
     p.origin_task_id = task.filter(|t| {
@@ -1452,10 +1434,7 @@ fn fill_from_read(p: &mut Page, read: &Read, body: &str) {
 fn links_ahead(conn: &Connection, id: &str) -> Result<bool> {
     let body: String = conn.query_row("SELECT body FROM pages WHERE id = ?1", [id], |r| r.get(0))?;
     for target in crate::mentions::parse(&body).0 {
-        let known = conn
-            .query_row("SELECT 1 FROM pages WHERE id = ?1", [&target], |_| Ok(()))
-            .optional()?
-            .is_some();
+        let known = has_id(conn, "pages", &target)?;
         if !known {
             return Ok(true);
         }
@@ -1543,10 +1522,7 @@ fn apply_page(
             {
                 return Ok(None);
             }
-            let in_use = conn
-                .query_row("SELECT 1 FROM pages WHERE id = ?1", [id], |_| Ok(()))
-                .optional()?
-                .is_some();
+            let in_use = has_id(conn, "pages", id)?;
             if in_use {
                 return Ok(None);
             }
@@ -1624,16 +1600,4 @@ pub fn scan(db: &mut Db, scope: Scope) -> Result<ScanSummary> {
 /// Whether a path names something a scan reads (not hidden, inside the root).
 pub fn relevant(rel: &str) -> bool {
     !rel.is_empty() && !rel.split('/').any(is_hidden)
-}
-
-/// The root-relative paths of absolute ones (for watcher batches); others are dropped.
-pub fn relative_paths(ext: &Ext, abs: &[std::path::PathBuf]) -> Vec<String> {
-    let mut out: Vec<String> = abs
-        .iter()
-        .filter_map(|p| ext.rel(Path::new(p)))
-        .filter(|p| relevant(p))
-        .collect();
-    out.sort();
-    out.dedup();
-    out
 }

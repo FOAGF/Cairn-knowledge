@@ -5,7 +5,7 @@ import { ChevronDown } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useT } from '@/i18n'
 import { cn } from '@/lib/utils'
-import { lineDiff } from '../knowledge/utils'
+import { type DiffLine, lineDiff } from '@/lib/lineDiff'
 
 const CONTEXT = 1
 
@@ -29,17 +29,7 @@ export function PageDiff({ oldBody, newBody }: { oldBody: string; newBody: strin
         {rows.map(({ line, gap }, i) => (
           <div key={i}>
             {gap && <div className="px-2 text-muted-foreground">…</div>}
-            <div
-              className={cn(
-                'px-2',
-                line.type === 'add' && 'bg-tint-green text-tint-green-fg',
-                line.type === 'del' && 'bg-tint-rose text-tint-rose-fg line-through decoration-1',
-                line.type === 'same' && 'text-muted-foreground',
-              )}
-            >
-              {line.type === 'add' ? '+ ' : line.type === 'del' ? '- ' : '  '}
-              {line.text || ' '}
-            </div>
+            <DiffRow line={line} />
           </div>
         ))}
       </pre>
@@ -47,6 +37,23 @@ export function PageDiff({ oldBody, newBody }: { oldBody: string; newBody: strin
         <ChevronDown className={cn('size-3.5 transition-transform', whole && 'rotate-180')} />
         {whole ? t.assistant.diff.onlyChanges : t.assistant.diff.wholePage}
       </button>
+    </div>
+  )
+}
+
+/** One line of a diff: added in green with `+`, removed in rose and struck through with `-`. */
+export function DiffRow({ line }: { line: DiffLine }) {
+  return (
+    <div
+      className={cn(
+        'rounded px-2',
+        line.type === 'add' && 'bg-tint-green text-tint-green-fg',
+        line.type === 'del' && 'bg-tint-rose text-tint-rose-fg line-through decoration-1',
+        line.type === 'same' && 'text-muted-foreground',
+      )}
+    >
+      {line.type === 'add' ? '+ ' : line.type === 'del' ? '- ' : '  '}
+      {line.text || ' '}
     </div>
   )
 }

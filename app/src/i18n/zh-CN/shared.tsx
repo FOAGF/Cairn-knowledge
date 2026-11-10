@@ -50,7 +50,6 @@ export const shared: Messages['shared'] = {
     partial: (ready, items) => `语义搜索已覆盖 ${ready}/${items} 项（正在建立索引…）`,
     unavailable: '语义搜索不可用，仅显示关键词结果',
   },
-  placeholder: '此页面正在开发中。',
   savedAs: {
     rules: '页面是文件，所以文件名遵循 Windows 的规则：< > : " / \\ | ? * 会变成 -，开头和结尾的点和空格会被去掉。',
     label: (name) => <>保存为：{name}</>,

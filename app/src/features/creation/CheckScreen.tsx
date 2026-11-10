@@ -8,8 +8,8 @@ import { EmptyState, PageHeader } from '@/components/shared/PageHeader'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { TermSuggestions } from '@/features/glossary/TermSuggestions'
-import { useCreateGroup, useGroups, usePage, type Page, useSetPageCheckStatus, useUpdatePage } from '@/api/knowledge'
-import { ensureGroupPath, groupPath, isGroupPath } from '@/features/knowledge/groupTree'
+import { useGroups, usePage, type Page, useSetPageCheckStatus, useUpdatePage } from '@/api/knowledge'
+import { createGroupNamed, groupPath } from '@/features/knowledge/groupTree'
 import { draftSource } from './helpers'
 import { useDuplicateMatches } from './useSimilar'
 import { CheckCard, CheckError, DuplicateMatches, Stepper, UnavailableNote, Waiting } from './parts'
@@ -35,7 +35,6 @@ function CheckBody({ page }: { page: Page }) {
   const navigate = useNavigate()
   const groups = useGroups(page.categoryId)
   const { mutate: updatePage } = useUpdatePage()
-  const { mutateAsync: createGroup } = useCreateGroup()
   const { mutate: setCheckStatus } = useSetPageCheckStatus()
   const [resolvedTerms, setResolvedTerms] = useState<Set<string>>(new Set())
   const t = useT()
@@ -76,12 +75,7 @@ function CheckBody({ page }: { page: Page }) {
   async function acceptGroup() {
     if (!suggestion) return
     try {
-      const groupId =
-        suggestion.kind === 'existing'
-          ? suggestion.groupId
-          : isGroupPath(suggestion.name)
-            ? await ensureGroupPath(page.categoryId, suggestion.name)
-            : (await createGroup({ categoryId: page.categoryId, name: suggestion.name })).id
+      const groupId = suggestion.kind === 'existing' ? suggestion.groupId : await createGroupNamed(page.categoryId, suggestion.name)
       updatePage({ id: page.id, patch: { groupId } }, { onSuccess: () => toast.success(t.creation.check.moved(suggestion.name)) })
     } catch (e) {
       toast.error(errorMessage(e))

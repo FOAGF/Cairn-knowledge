@@ -17,7 +17,6 @@ import {
   type MarkdownExportMode,
   type MentionTarget,
   type NewGroup,
-  type NewPage,
   type Page,
   type PageFilter,
   type PagePatch,
@@ -110,10 +109,6 @@ export function usePageTags(): string[] {
   return useQuery({ queryKey: ['knowledge', 'tags'], queryFn: () => commands.listPageTags() }).data ?? EMPTY_TAGS
 }
 
-export function useCreatePage() {
-  return useMutation({ mutationFn: (input: NewPage) => commands.createPage(input) })
-}
-
 // FR-KN-EXT-11: the page editor sends the file's hash from when editing started, and a different
 // hash at *Save* means the file changed on disk. Cairn's own writes to the page while it is being
 // edited (tags, group, category, source info, archive) change that hash too, so they are noted here
@@ -158,7 +153,7 @@ export function useArchivePage() {
   return useMutation({ mutationFn: ({ id, archived }: { id: string; archived: boolean }) => noted(id, () => commands.archivePage(id, archived)) })
 }
 
-/** Used by the (simulated until M5) checks. */
+/** Used by the checks of the save pipeline. */
 export function useSetPageCheckStatus() {
   return useMutation({ mutationFn: ({ id, status }: { id: string; status: CheckStatus }) => commands.setPageCheckStatus(id, status) })
 }

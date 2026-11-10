@@ -9,7 +9,8 @@
 
 use rusqlite::Connection;
 
-use crate::assistant::items::ItemRef;
+use crate::assistant::formats::ItemInfo;
+use crate::assistant::items::{self, ItemRef};
 use crate::{Result, knowledge, mentions, tasks};
 
 /// The items `text` refers to that exist, in order of first appearance, pages before tasks; none twice.
@@ -46,11 +47,31 @@ pub fn for_model(conn: &Connection, text: &str) -> String {
     )
 }
 
+/// The referenced items as source text for a draft revision. The caller fits this together with
+/// the original source, so references share its context budget rather than bypassing it.
+pub fn source_text(conn: &Connection, text: &str) -> Result<String> {
+    let mut blocks = Vec::new();
+    for item in items::load(conn, &items(conn, text)?)? {
+        let mut body = match &item {
+            ItemInfo::Page(p) => p.body.clone(),
+            ItemInfo::Task(t) => {
+                let mut body = t.description.clone();
+                for comment in tasks::comments(conn, &t.id)? {
+                    body.push_str(&format!("\n\nComment {}:\n{}", comment.created_at, comment.text));
+                }
+                body
+            }
+        };
+        body = for_model(conn, &body);
+        blocks.push(format!("{}\n{body}", item.head()));
+    }
+    Ok(blocks.join("\n\n"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::Db;
-    use crate::categories::{self, CategoryColor, NewCategory};
     use crate::knowledge::NewPage;
     use crate::tasks::NewTask;
 
@@ -64,17 +85,7 @@ mod tests {
     fn env() -> Env {
         let dir = tempfile::tempdir().unwrap();
         let mut db = Db::open_at(dir.path()).unwrap();
-        let category = categories::create(
-            db.conn(),
-            NewCategory {
-                name: "Alpha".into(),
-                key: "AAA".into(),
-                description: String::new(),
-                color: CategoryColor::preset("blue"),
-            },
-        )
-        .unwrap()
-        .id;
+        let category = crate::test_util::category(db.conn(), "Alpha", "AAA");
         let task = tasks::create(
             &mut db,
             NewTask { category_id: category.clone(), title: "Pump seal".into(), ..NewTask::default() },
@@ -113,6 +124,7 @@ mod tests {
         let e = env();
         let text = format!("#ZZ-9, [Gone](page:nope) and `#{}`", e.task.key);
         assert!(items(e.db.conn(), &text).unwrap().is_empty());
+        assert!(source_text(e.db.conn(), &text).unwrap().is_empty());
     }
 
     #[test]

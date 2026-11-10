@@ -27,6 +27,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { useT } from '@/i18n'
 import { ModelDialog } from './ModelDialog'
 import { AUTH_CHOICES, effortSummary, Field } from './parts'
@@ -300,18 +301,15 @@ function ProviderCard({ provider }: { provider: Provider }) {
       </div>
       {/* Keyed so the form restarts from the saved values each time it opens. */}
       {editOpen && <ProviderDialog key={provider.updatedAt} provider={provider} open onOpenChange={setEditOpen} />}
-      <Dialog open={confirmDel} onOpenChange={setConfirmDel}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{pc.deleteTitle(provider.name)}</DialogTitle>
-            <DialogDescription>{pc.deleteBody(mine.length)}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmDel(false)}>{t.common.cancel}</Button>
-            <Button variant="destructive" disabled={remove.isPending} onClick={() => remove.mutate(provider.id, { onSuccess: () => setConfirmDel(false) })}>{t.common.delete}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={confirmDel}
+        title={pc.deleteTitle(provider.name)}
+        description={pc.deleteBody(mine.length)}
+        confirmLabel={t.common.delete}
+        busy={remove.isPending}
+        onClose={() => setConfirmDel(false)}
+        onConfirm={() => remove.mutate(provider.id, { onSuccess: () => setConfirmDel(false) })}
+      />
     </SectionCard>
   )
 }

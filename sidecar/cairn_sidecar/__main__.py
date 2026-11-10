@@ -36,8 +36,6 @@ def main():
     # JSON line per message (the app reads either, but keep the bytes identical on every OS).
     sys.stdout.reconfigure(encoding="utf-8", newline="\n")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-    os.environ.setdefault("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    os.environ.setdefault("LITELLM_LOG", "ERROR")
 
     from . import rpc
     methods = rpc.common_methods(role)

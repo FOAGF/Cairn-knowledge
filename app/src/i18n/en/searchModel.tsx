@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react'
 
-// The search model added after installing (FR-RAG-EM-3, D-82): Settings › Search, the first-start
+// The search model added after installing (FR-RAG-EM-3, D-82): Settings › Models & defaults, the first-start
 // card's note, the one-time Home notice, the progress line on Home and in the top bar, and the
 // toasts. `mb` is the model's size in MB, rounded.
 export const searchModel = {
-  /** Settings › Search, the *Model* row of a model added after installing. */
+  /** Settings › Models & defaults, the *Search model* row of a model added after installing. */
   added: 'EmbeddingGemma (added, runs locally)',
   addedHint: 'Added after installing. Search works offline and nothing is sent out for indexing.',
   notInstalled: 'Not installed',
@@ -48,7 +48,7 @@ export const searchModel = {
   /** The progress line on Home; `pct` is the percentage done. */
   lineDownloading: (pct: number) => `Downloading the search model… ${pct}%`,
   lineChecking: (pct: number) => `Checking the search model… ${pct}%`,
-  lineFailed: 'The search model couldn’t be added. Open Settings › Search.',
+  lineFailed: 'The search model couldn’t be added. Open Settings › Models & defaults.',
   /** The same in the top bar, shorter. */
   compact: (pct: number) => `Search model ${pct}%`,
   compactFailed: 'Search model not added',

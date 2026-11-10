@@ -1,4 +1,4 @@
-//! Settings › Search: the search model added after installing (FR-RAG-EM-3, D-82). The work runs in
+//! Settings › Models & defaults: the search model added after installing (FR-RAG-EM-3, D-82). The work runs in
 //! `crate::search_model`; these commands start it and return the state at once.
 
 use std::path::PathBuf;

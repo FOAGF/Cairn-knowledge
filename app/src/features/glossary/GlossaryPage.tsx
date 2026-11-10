@@ -4,10 +4,10 @@ import { BookA } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { type GlossaryEntry, useCreateGlossaryEntry, useDeleteGlossaryEntry, useGlossary, useUpdateGlossaryEntry } from '@/api/glossary'
-import { isApiError } from '@/api/client'
+import { errorMessage, isApiError } from '@/api/client'
 import { EmptyState, PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
-import { ConfirmDialog } from '@/features/knowledge/GroupDialogs'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { GlossaryDetail } from './GlossaryDetail'
 import { GlossaryForm, type EntryDraft } from './GlossaryForm'
 import { GlossaryList, inScope, matchesQuery, type ScopeFilter } from './GlossaryList'
@@ -85,7 +85,7 @@ export default function GlossaryPage() {
         <p className="py-10 text-center text-sm text-muted-foreground">{t.glossary.loading}</p>
       ) : isError ? (
         <EmptyState icon={BookA} title={t.glossary.loadFailed}>
-          <p>{isApiError(error) ? error.message : String(error)}</p>
+          <p>{errorMessage(error)}</p>
           <Button className="mt-3" variant="outline" onClick={() => void refetch()}>
             {t.common.tryAgain}
           </Button>

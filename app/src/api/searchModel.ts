@@ -1,5 +1,5 @@
 // The search model added after installing (FR-RAG-EM-3, D-82). Lite packages leave the model out;
-// Settings › Search downloads it or adds it from a folder or a `.zip`, and the first-start card and
+// Settings › Models & defaults downloads it or adds it from a folder or a `.zip`, and the first-start card and
 // a one-time Home notice offer the download too.
 //
 //   const status = useSearchModelStatus()            // install, the task running or failed, ...
@@ -12,12 +12,12 @@
 // Failures toast automatically (see client.ts).
 import { open } from '@tauri-apps/plugin-dialog'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useEffect } from 'react'
 import { toast } from 'sonner'
 import { getT } from '@/i18n'
-import { commands, events, type ModelTask, type SearchModelStatus } from './bindings'
-import { isTauri } from './client'
+import { commands, events, type ModelTask, type SearchModelDone, type SearchModelStatus } from './bindings'
+import { useTauriEvent } from './client'
 import { useEventQuery } from './search'
+import { pickFolder } from '@/lib/pickFolder'
 
 export type { ModelTask, SearchModelStatus } from './bindings'
 
@@ -52,10 +52,7 @@ export async function pickModelZip(): Promise<string | null> {
 }
 
 /** Opens a folder dialog for a folder holding the model. Returns the path, or `null` if cancelled. */
-export async function pickModelFolder(): Promise<string | null> {
-  const path = await open({ multiple: false, directory: true })
-  return typeof path === 'string' ? path : null
-}
+export const pickModelFolder = () => pickFolder()
 
 /** Bytes in whole MB, for progress. */
 export const toMB = (bytes: number) => Math.round(bytes / 1_000_000)
@@ -67,24 +64,15 @@ export const aboutMB = (bytes: number) => Math.round(bytes / 10_000_000) * 10
 export const taskPercent = (task: ModelTask) => (task.totalBytes > 0 ? Math.min(100, Math.floor((task.doneBytes * 100) / task.totalBytes)) : 0)
 
 /** A toast when a download or import ends (FR-RAG-EM-3). Mount once, in the app shell. */
+function toastDone(done: SearchModelDone) {
+  const m = getT().searchModel
+  if (done.ok) toast.success(m.ready)
+  else {
+    const error = done.error ?? ''
+    toast.error(done.kind === 'download' ? m.downloadFailed(error) : m.importFailed(error))
+  }
+}
+
 export function useSearchModelDoneToasts() {
-  useEffect(() => {
-    if (!isTauri()) return
-    let unlisten: (() => void) | undefined
-    let cancelled = false
-    void events.searchModelDone
-      .listen(({ payload }) => {
-        const m = getT().searchModel
-        if (payload.ok) toast.success(m.ready)
-        else {
-          const error = payload.error ?? ''
-          toast.error(payload.kind === 'download' ? m.downloadFailed(error) : m.importFailed(error))
-        }
-      })
-      .then((fn) => (cancelled ? fn() : (unlisten = fn)))
-    return () => {
-      cancelled = true
-      unlisten?.()
-    }
-  }, [])
+  useTauriEvent(events.searchModelDone, toastDone)
 }

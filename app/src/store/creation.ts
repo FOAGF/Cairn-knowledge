@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { type CheckStatus, commands, type Page } from '@/api/bindings'
 import { errorMessage } from '@/api/client'
 import { fetchMessage, updateMessage } from '@/api/conversations'
-import { ensureGroupPath, isGroupPath } from '@/features/knowledge/groupTree'
+import { createGroupNamed } from '@/features/knowledge/groupTree'
 import { readSettings } from '@/api/settings'
 import { cleanTitle } from '@/lib/fileNames'
 import { joinTitleLine, splitTitleLine } from '@/lib/titleLine'
@@ -83,7 +83,7 @@ export const createCreationSlice: SliceCreator<CreationSlice> = (set, get) => ({
     try {
       const name = d.newGroup?.trim()
       // External mode: "Parent / Child" makes the missing groups inside each other (D-72).
-      const groupId = name ? (isGroupPath(name) ? await ensureGroupPath(d.categoryId, name) : (await commands.createGroup({ categoryId: d.categoryId, name })).id) : d.groupId
+      const groupId = name ? await createGroupNamed(d.categoryId, name) : d.groupId
       // External mode: the title follows its file name (FR-KN-EXT-15), and so does the `# title` line.
       const external = readSettings().knowledgeMode === 'external'
       const title = external ? cleanTitle(d.title) : d.title.trim()

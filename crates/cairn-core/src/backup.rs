@@ -36,11 +36,12 @@
 use std::fmt::Display;
 use std::path::{Path, PathBuf};
 
-use chrono::{DateTime, Local, NaiveDateTime, SecondsFormat, TimeZone, Utc};
+use chrono::{DateTime, Local, NaiveDateTime, TimeZone, Utc};
 use rusqlite::{Connection, OpenFlags};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
+use crate::util::iso;
 use crate::{CoreError, DataPaths, Db, Result, export, settings};
 
 /// Why a backup was made.
@@ -146,10 +147,6 @@ fn parse_utc(text: &Option<String>) -> Option<DateTime<Utc>> {
         .map(|t| t.with_timezone(&Utc))
 }
 
-fn iso(t: DateTime<Utc>) -> String {
-    t.to_rfc3339_opts(SecondsFormat::Millis, true)
-}
-
 // ---------------------------------------------------------------------------------------------
 // Folder and status
 
@@ -180,7 +177,7 @@ fn status_as(db: &Db, computer: String) -> Result<BackupStatus> {
         is_default_folder: folder == db.paths().backups_dir(),
         last: list_folder(&folder)
             .into_iter()
-            .find(|f| f.computer.as_deref() == Some(computer.as_str())),
+            .find(|f| same_computer(&f.computer, &computer)),
         computer,
         error: state.error,
         error_at: state.error_at,
@@ -209,11 +206,8 @@ pub fn check_folder(folder: &Path) -> Result<()> {
     }
     std::fs::create_dir_all(folder)
         .map_err(|e| CoreError::Invalid(format!("That folder cannot be created: {e}")))?;
-    let probe = folder.join(".cairn-write-test");
-    std::fs::write(&probe, b"")
-        .map_err(|e| CoreError::Invalid(format!("Cairn cannot write to that folder: {e}")))?;
-    let _ = std::fs::remove_file(probe);
-    Ok(())
+    crate::util::try_write(folder)
+        .map_err(|e| CoreError::Invalid(format!("Cairn cannot write to that folder: {e}")))
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -305,14 +299,6 @@ pub fn prepare(db: &Db, kind: BackupKind) -> Result<BackupJob> {
         kind,
         computer: computer_name(),
     })
-}
-
-/// Makes a backup of `kind` now: the database check first (daily only), then the export, then
-/// retention (daily only). Records the outcome in the status, also on failure (the error is
-/// returned too). Holds the caller's `Db` for the whole export; the app uses [`prepare`] and
-/// [`BackupJob::run`] instead.
-pub fn make_backup(db: &mut Db, kind: BackupKind, now: DateTime<Utc>) -> Result<BackupFile> {
-    prepare(db, kind)?.run(now)
 }
 
 impl BackupJob {
@@ -555,7 +541,7 @@ pub fn parse_name(name: &str) -> Option<(BackupKind, Option<String>)> {
 
 /// Deletes all but the newest `keep` of `files` (sort key: UTC time as RFC 3339 or a stamp that
 /// sorts the same way; an unparseable time never gets here).
-fn delete_beyond(files: &mut Vec<(String, PathBuf)>, keep: usize) {
+fn delete_beyond(files: &mut [(String, PathBuf)], keep: usize) {
     files.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| b.1.cmp(&a.1)));
     for (_, path) in files.iter().skip(keep) {
         match std::fs::remove_file(path) {
@@ -731,6 +717,9 @@ mod tests {
         assert!(st.is_default_folder && !st.check_failed && st.error.is_none());
         assert_eq!(st.computer, "TESTPC");
         assert_eq!(f.computer.as_deref(), Some("TESTPC"));
+        assert_eq!(st.last.unwrap().file_name, f.file_name);
+        // The computer name matches ignoring case, as retention does.
+        let st = status_as(&db, "testpc".into()).unwrap();
         assert_eq!(st.last.unwrap().file_name, f.file_name);
         assert_eq!(list(&db).unwrap().len(), 1);
         // No half-written file is left.

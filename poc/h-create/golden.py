@@ -13,7 +13,7 @@ import prompts as P  # noqa: E402
 out = {}
 for path in sorted(glob.glob(os.path.join(P.PROMPTS, "[!_]*.md"))):
     tid = os.path.basename(path)[:-3]
-    if tid == "README":
+    if tid in ("README", "CLAUDE"):
         continue
     names = P.load(tid)["meta"]["variables"]
     out[tid] = P.render(tid, **{v: f"<{v}: {{{{x}}}} value>" for v in names})

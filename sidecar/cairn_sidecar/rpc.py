@@ -12,7 +12,6 @@ import sys
 import threading
 
 from . import __version__, errors
-from .errors import InvalidParams, SidecarError
 
 
 def log(*a, level="INFO"):
@@ -85,9 +84,9 @@ class Server:
 
     # ---- running a request
     def _run(self, req, fn):
-        if req.cancelled.is_set():
-            return
         try:
+            if req.cancelled.is_set():  # inside the try, so `finally` still forgets it
+                return
             req.result(fn(req))
         except BaseException as e:  # noqa: BLE001 - everything must become an answer
             err = errors.from_exception(e, self.secrets_of(req.params))
@@ -178,4 +177,4 @@ def common_methods(role):
     return {"ping": (ping, "inline"), "shutdown": (shutdown, "inline")}
 
 
-__all__ = ["Server", "Request", "common_methods", "log", "InvalidParams", "SidecarError"]
+__all__ = ["Server", "Request", "common_methods", "log"]

@@ -33,10 +33,6 @@ impl OsKeychain {
         }
     }
 
-    pub fn service(&self) -> &str {
-        &self.service
-    }
-
     fn entry(&self, account: &str) -> Result<keyring::Entry> {
         keyring::Entry::new(&self.service, account).map_err(|e| keychain_unavailable(&e))
     }

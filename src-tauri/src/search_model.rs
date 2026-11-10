@@ -10,7 +10,7 @@
 //!   temporary folder; then the search worker must load that folder and embed a test sentence;
 //!   only then is it renamed into place and used. The worker is stopped after the test, so it
 //!   doesn't keep a second copy of the model loaded under the temporary path.
-//! - **State** goes to the UI as the `SearchModelStatus` event (Settings › Search, Home, the
+//! - **State** goes to the UI as the `SearchModelStatus` event (Settings › Models & defaults, Home, the
 //!   sidebar); the end of a download or an import also sends `SearchModelDone` (a toast).
 //! - One download or import at a time.
 
@@ -43,7 +43,7 @@ const EVENT_EVERY: Duration = Duration::from_millis(250);
 pub enum ModelInstall {
     /// Part of the package (the full packages, or a development setup).
     Bundled,
-    /// Added in Settings › Search (download or file); can be removed.
+    /// Added in Settings › Models & defaults (download or file); can be removed.
     Added,
     NotInstalled,
 }

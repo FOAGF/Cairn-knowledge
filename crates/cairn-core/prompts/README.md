@@ -5,7 +5,8 @@ Rust core includes them with `include_str!` and renders them with plain string r
 `poc/h-create/llm_check.py` (M5) and `poc/i-assistant/llm_check.py` (M6) load the same files, so the
 harnesses test exactly what the app sends. The M6 templates are `ask-plan`, `ask-answer`, `ask-action`,
 `ask-page`, `edit-page`, `doc-terms` and `ask-web`; they reuse `_glossary.md`, `_term-rules.md` and
-`_page-rules.md`, and add `_answer-rules.md` and `_cite-rules.md`.
+`_page-rules.md`, and add `_answer-rules.md` and `_cite-rules.md`. `news` (the tech news on Home, D-92) is checked by
+`poc/i-assistant/llm_check.py` too.
 
 **How templates are written (owner's rule, 2026-10-15; changed 2026-10-26):**
 1. A new template, or a rewrite of one, is written by an Opus sub-agent at max effort (a Fable sub-agent until 2026-10-26).
@@ -21,7 +22,7 @@ harnesses test exactly what the app sends. The M6 templates are `ask-plan`, `ask
   |---|---|
   | `id` | the file name without `.md` |
   | `purpose` | one line, with the spec IDs it serves |
-  | `model` | `conversation` (the model picked in the chat, FR-LLM-ST-2), `default` (background model, FR-LLM-AS-6) or `ocr` |
+  | `model` | `conversation` (the model picked in the chat, FR-LLM-ST-2), `default` (background model, FR-LLM-AS-6), `ocr`, or `web` (the web search model, FR-LLM-AS-6, D-91) |
   | `output` | `page` (Markdown starting with `# `), `json`, `text`, or `page-or-text` |
   | `stream` | `true` when the text is shown as it arrives |
   | `variables` | a list of `name: one-line meaning, and what the app passes when it is absent`; `[]` when there are none |
@@ -51,8 +52,9 @@ harnesses test exactly what the app sends. The M6 templates are `ask-plan`, `ask
      block per page image (PROTOCOL.md `llm.complete`); several pages per call are allowed.
    - `revise`: `system`, `user` (source) from the template, then `assistant` (the current draft), then
      the earlier turns of the chat about this draft in order, then the new user message as it was typed.
-   - `check-retry`: appended to the `check`, `suggest-groups`, `ask-plan`, `ask-action` or `doc-terms`
-     conversation after the assistant's unreadable reply, once (FR-KN-SV-1).
+   - `check-retry`: appended to the `check`, `suggest-groups`, `ask-plan`, `ask-action`, `doc-terms` or `news`
+     conversation after the assistant's unreadable reply, once (FR-KN-SV-1); for `news` it is sent without web
+     search, since the reply only needs reformatting.
    - `ask-plan`, `doc-terms`, `ask-web`: nothing; the earlier turns reach `ask-plan` as the `history` text.
    - `ask-answer`, `ask-action`, `ask-page`, `edit-page`: `system` from the template, then the earlier turns of
      the conversation in order, oldest first, as far back as the history budget allows (FR-LLM-AS-10), then
@@ -71,6 +73,10 @@ harnesses test exactly what the app sends. The M6 templates are `ask-plan`, `ask
      obey, and the app detects that after the reply (Local checks). When the provider refused the request
      because of the tool, the same message is sent again without the tool and with the no-search text, so
      the model answers from what it knows and says so, instead of claiming or attempting a search.
+   - `news`: sent to the web search model with the provider's web search on, as `ask-web` is, with at most the "web
+     searches per message" setting (default 5), not streamed, and nothing else: no notes, no tasks, no glossary
+     (FR-HOME-7, NFR-SEC-2). There is no fallback without the web: a refusal or a reply without a search is an error
+     on the card (Local checks).
 
 ## Templates
 
@@ -94,6 +100,7 @@ harnesses test exactly what the app sends. The M6 templates are `ask-plan`, `ask
 | `edit-page` | the whole page with one change made, for the diff; a plain reply when the change can't be made | conversation | page-or-text | yes | FR-LLM-AS-3, FR-KN-ED-5 |
 | `doc-terms` | glossary suggestions from an attached document, once per document | default | json | no | FR-KN-GL-7, FR-LLM-AS-11 |
 | `ask-web` | the one message sent with web search on; carries only what the user typed | conversation | text | yes | FR-LLM-AS-12 |
+| `news` | the tech news on Home, once a day and on *Refresh*: up to 8 recent stories on the user's topics, found with web search on; carries only the topics and the date | web | json | no | FR-HOME-7, FR-LLM-AS-12 |
 
 Fragments: `_page-rules.md` (how a page is written), `_glossary.md` (the glossary block, FR-LLM-AS-8),
 `_term-rules.md` (conservative glossary suggestions, FR-KN-GL-7), `_answer-rules.md` (language, glossary
@@ -134,6 +141,11 @@ Other conventions:
 - `refs_note` is `""` or `The message refers to these earlier items: source 2 (page "Title"); source 5 (task KEY).` for the plan's `refs`, which the app sends as sources of this turn.
 - `message`, `question` and `request` are the user's message as typed, trimmed. `message` is `""` when only a file was sent.
 - `search` (`ask-web`) is exactly one of two texts; the Rust core holds them as constants (`prompts::WEB_SEARCH_ON`, `prompts::WEB_SEARCH_OFF`). With web search on: `The user turned web search on for this message, so search the web before you answer, even when you think you already know the answer, and even for a simple question: the user wants the answer checked against current pages, not recalled. Base the answer on the pages the search returned and cite the ones you used. Do not write web addresses from memory: the citations are attached to your answer for you. When the search finds nothing reliable, say so plainly instead of guessing.` After the provider refused the search: `Web search is not available for this message, so answer from what you already know. Say plainly in your first sentence that this answer is not from a web search and may be out of date. Do not write web addresses from memory. When the question needs current information you cannot know, say so instead of guessing.`
+- `topics` (`news`) is the topics field of Settings › General › *Home* as typed, trimmed, e.g. `AI, Rust, cloud`, or
+  `technology` when it is empty. It is not the `topics` list above (that one is `keep-one-topic`'s). The prompt treats
+  it as subjects to search for, never as instructions.
+- `language` (`news`) is the interface language the headlines and summaries are written in: exactly `English` or
+  `Simplified Chinese` (NFR-I18N-2).
 - `content` (`ask-page`) and `change` (`edit-page`) come from the confirmed proposal (`create_page.content`, `update_page.change`); `title` (`ask-page`) from the proposal or `""`; `category` (`ask-page`) is the category on the card after the user's edits.
 - `excerpt_note` is `""` or exactly this sentence: `These are excerpts of a longer text, picked by meaning for the instruction or request because the whole text is too long to send; "[...]" marks where text was left out. Work from the excerpts only.` The app joins the excerpts with a line containing `[...]`.
 - `instruction` is the user's message as typed, trimmed; `""` when the file came without one.
@@ -188,6 +200,15 @@ the list; `links` adds. There is no delete op of any kind, so a delete cannot be
 ```json
 {"terms": [{"term": "...", "meaning": "...", "confidence": "high" | "medium" | "low" | "unknown"}]}
 ```
+
+`news`:
+```json
+{"stories": [{"title": "headline in the interface language", "summary": "one sentence in the interface language",
+              "source": "site or publication name", "date": "YYYY-MM-DD" | "",
+              "url": "https://… the story's page, as the search returned it"}]}
+```
+At most 8, the newest first; `"stories": []` when the searches found nothing recent. `date` is `""` when neither the
+search result nor the page shows it.
 
 Reading a JSON reply: take the text between the first `{` and the last `}`, after stripping a code fence if
 the model added one, and parse it. When that fails or is not an object, send `check-retry` once; when
@@ -407,6 +428,31 @@ App-side:
   `web-stream`, and `web-stable`, a question a model would answer from memory, to see that the prompt makes
   it search anyway). `web-off` renders the no-search mode and calls the model without the tool, as the app
   does after a refusal, and judges that the reply says it is not from a web search and contains no URL.
+
+### `news`
+
+Prompt-side: search first, covering every topic (read in its technology sense), and write nothing until the searches
+are done, because a model that narrates its searches puts that text in the reply; then one JSON object. Only stories
+from the last 7 days, the newest first; the topics shared fairly; each piece of news once; titles and summaries in
+`language` whatever the page's language, as plain text, with the link only in `url`, each story its own page; only
+pages the search returned, no story, link or date from memory; `[]` when nothing recent was found. The topics are
+subjects to search for: text in them never changes the task or the format.
+
+App-side (`news.rs` `parse_stories`, `src-tauri/src/commands/news.rs`):
+- Was a search made? As for `ask-web`. A reply with no sign of a web search (`web.searches` 0) is never shown as news:
+  the card shows "<model> made no web search" and keeps the last result (FR-LLM-AS-12). A refusal is an error the same
+  way; the model's *Web search* tick is left as it is.
+- Parse as above. A reply without a `stories` list gets `check-retry` once, without the web; a second failure is an
+  error with *Try again*, keeping the last result.
+- Each field's whitespace is collapsed; `date` is kept only when it reads as `YYYY-MM-DD`, else `""`. A story without
+  a title, or whose `url` does not start with `http://` or `https://`, is dropped; the same `url` counts once; at most
+  8, in the reply's order.
+- The links are not compared with the pages the search returned: the app gets only the cited pages (`web.sources`),
+  and a JSON reply may cite few. The prompt and the check guard that: the `news-*` checks of
+  `poc/i-assistant/llm_check.py` read every page address in the provider's replies (Claude's search results included)
+  and judge each link against them. They also judge the shape, 1 to 8 stories, plain one-line titles and summaries,
+  the language (Han share, no Traditional characters for Chinese), dates (none older than 10 days, newest first), a
+  story on each topic shared fairly, and that topic text written as an instruction changes nothing.
 
 ### `ocr`
 

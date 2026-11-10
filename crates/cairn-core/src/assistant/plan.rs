@@ -1,8 +1,6 @@
 //! The first step of every assistant message (`ask-plan`, D-44): the model's JSON read into a
 //! [`Plan`] with the README's safe fallbacks ("Local checks › ask-plan";
 //! `poc/i-assistant/formats.py` `check_plan` is the reference).
-//!
-//! Owned by the M6 answers agent.
 
 use chrono::NaiveDate;
 use serde::de::DeserializeOwned;

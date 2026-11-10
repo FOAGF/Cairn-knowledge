@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/command'
 import { useT } from '@/i18n'
 import { useAppStore } from '@/store'
+import { useSettled } from '@/lib/useSettled'
 
 /** How long typing must pause before the slower search by meaning starts (FR-RAG-SR-5). */
 const MEANING_DELAY_MS = 300
@@ -47,15 +48,8 @@ export function CommandPalette() {
 
   // FR-RAG-SR-5: keyword results show while typing; after a pause the merged keyword + meaning
   // results replace them, if they are for the text that is in the box now.
-  const [pausedText, setPausedText] = useState('')
-  useEffect(() => {
-    if (!q.trim()) {
-      setPausedText('')
-      return
-    }
-    const timer = setTimeout(() => setPausedText(q), MEANING_DELAY_MS)
-    return () => clearTimeout(timer)
-  }, [q])
+  const settled = useSettled(q, MEANING_DELAY_MS)
+  const pausedText = q.trim() ? settled : ''
   const hybridQuery = useMemo(() => ({ text: pausedText, kinds: [...PALETTE_KINDS], includeClosed: true, limit: 20 }), [pausedText])
   // D-82: without an installed search model (a lite package) Ctrl+K stays with the keyword results,
   // with no "searching by meaning" line and no warning.

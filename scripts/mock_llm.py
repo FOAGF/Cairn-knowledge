@@ -221,7 +221,25 @@ def m6_reply(body, first, user, last):
                                                              "end_index": len(text)}}]
             return "ask-web", text, ann
         return "ask-web-ignored", "As of my knowledge, the latest is Python 3.14 ([python.org](https://www.python.org/)).", None
+    if first.startswith("You collect the latest tech news"):
+        return news_reply(body, first, last)
     return None
+
+
+def news_reply(body, first, last):
+    """FR-HOME-7: seven stories (so the card folds two), in Chinese when asked; topics with "ignore" play a model that
+    made no search."""
+    zh = "Simplified Chinese" in first
+    stories = [{"title": (f"新闻标题 {i}" if zh else f"Mock headline {i}"),
+                "summary": (f"第 {i} 条新闻的一句话摘要。" if zh else f"One sentence about story {i}."),
+                "source": "Example News", "date": f"2026-11-{10 - i:02d}", "url": f"https://news.example.com/story-{i}"}
+               for i in range(1, 8)]
+    text = json.dumps({"stories": stories}, ensure_ascii=False)
+    if "web_search_options" not in body or "ignore" in last.lower():
+        return "news-ignored", text, None
+    ann = [{"type": "url_citation", "url_citation": {"url": s["url"], "title": s["title"], "start_index": 0,
+                                                     "end_index": len(text)}} for s in stories]
+    return "news", text, ann
 
 
 DS_PAGES = [("https://www.python.org/downloads/", "Download Python | Python.org", "Python 3.15.0 is the latest release (9 October 2026)."),

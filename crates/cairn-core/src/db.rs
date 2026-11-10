@@ -29,8 +29,11 @@ impl Db {
         }
         migrate(&mut conn)?;
         if source_version < latest_version() {
-            // A schema upgrade may add derived indexes (search, mentions) for existing data.
-            crate::hooks::rebuild_all(&conn)?;
+            // A schema upgrade may add derived indexes (search, mentions) for existing data. One
+            // transaction, so a failure leaves the old indexes rather than half-emptied ones.
+            let tx = conn.transaction()?;
+            crate::hooks::rebuild_all(&tx)?;
+            tx.commit()?;
         }
         // D-72: a database from before this run that records no knowledge mode is internal (an
         // older version made it); one made just now leaves it unset, so the UI asks.
@@ -173,7 +176,7 @@ pub(crate) fn import_swapped_marker(paths: &DataPaths) -> PathBuf {
 }
 
 /// `path` with `suffix` appended to the file name.
-fn with_suffix(path: &Path, suffix: &str) -> PathBuf {
+pub(crate) fn with_suffix(path: &Path, suffix: &str) -> PathBuf {
     let mut name = path.as_os_str().to_owned();
     name.push(suffix);
     PathBuf::from(name)
@@ -413,7 +416,7 @@ mod tests {
             conn.execute_batch(V9_KNOWLEDGE).unwrap();
         }
         let db = Db::open(paths).unwrap();
-        assert_eq!(db.schema_version().unwrap(), 10);
+        assert_eq!(db.schema_version().unwrap(), latest_version());
         assert_eq!(std::fs::read_dir(db.paths().backups_dir()).unwrap().count(), 1);
         let c = db.conn();
         let n = |sql: &str| -> i64 { c.query_row(sql, [], |r| r.get(0)).unwrap() };

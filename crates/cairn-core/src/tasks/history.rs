@@ -73,7 +73,6 @@ pub(super) fn completion_summary(
     }))
 }
 
-/// Writes an activity row. A `task_updated` replaces the task's earlier one of the same local day.
 /// Writes an activity row for a task or page. `task_updated` and `page_updated` keep at most one
 /// row per item per local day (the earlier one of the same day is replaced).
 pub(crate) fn log_activity(

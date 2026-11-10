@@ -399,14 +399,34 @@ pub fn clean_title(title: &str) -> String {
     clean_name(title, "page")
 }
 
+/// The folder in a category or group that holds its pages' images: never a category or a group.
+pub(crate) const ATTACHMENTS: &str = "attachments";
+
+/// Whether a folder name is [`ATTACHMENTS`] (in any case).
+pub(crate) fn is_attachments(name: &str) -> bool {
+    name.eq_ignore_ascii_case(ATTACHMENTS)
+}
+
+/// A group can't take the images folder's name.
+pub(crate) fn check_group_name(name: &str) -> Result<()> {
+    if is_attachments(name) {
+        return Err(CoreError::Invalid(
+            "\"attachments\" is the folder for a category's images. Choose another name.".into(),
+        ));
+    }
+    Ok(())
+}
+
+/// A group whose row has no folder path (every group in external mode should have one).
+pub(crate) fn no_group_folder() -> CoreError {
+    CoreError::Invalid("This group has no folder in the knowledge folder.".into())
+}
+
 // ---------------------------------------------------------------- files
 
 /// SHA-256 of a file's bytes, as lowercase hex.
 pub(crate) fn hash_bytes(bytes: &[u8]) -> String {
-    Sha256::digest(bytes)
-        .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect()
+    format!("{:x}", Sha256::digest(bytes))
 }
 
 /// A file's size and modification time (nanoseconds since 1970), as the index keeps them.
@@ -432,8 +452,7 @@ pub(crate) fn stamp_of(meta: &std::fs::Metadata) -> Stamp {
 
 /// An ISO timestamp like `now_iso` for a file time.
 pub(crate) fn iso_of(t: SystemTime) -> String {
-    chrono::DateTime::<chrono::Utc>::from(t)
-        .to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
+    crate::util::iso(t.into())
 }
 
 /// Whether an error is Windows saying the file is in use (another program has it open).

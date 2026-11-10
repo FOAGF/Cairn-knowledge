@@ -12,7 +12,8 @@ import { ALL_TASKS, useTaskList } from '@/api/tasks'
 import { CategoryDot } from '@/components/shared/tint'
 import { Button } from '@/components/ui/button'
 import { useT } from '@/i18n'
-import { priorityLabel, PRIORITY_TINT, statusLabel, STATUS_TINT, TINT_CLASS } from '@/lib/labels'
+import { priorityLabel, PRIORITY_TINT, TINT_CLASS } from '@/lib/labels'
+import { StatusPill } from '@/components/shared/task-status'
 import { cn } from '@/lib/utils'
 
 const PAGE = 20
@@ -45,7 +46,7 @@ export function FindList({ find }: { find: FindPart }) {
                     <span className="min-w-0 flex-1 truncate">{t?.title ?? item.title}</span>
                     {t && (
                       <>
-                        <span className={cn('shrink-0 rounded-md px-2 py-0.5 text-[11px] font-semibold tracking-wide uppercase', TINT_CLASS[STATUS_TINT[t.status]])}>{statusLabel(t.status)}</span>
+                        <StatusPill status={t.status} className="shrink-0" />
                         <span className={cn('shrink-0 rounded-md px-2 py-0.5 text-[11px] font-semibold', TINT_CLASS[PRIORITY_TINT[t.priority]])}>{priorityLabel(t.priority)}</span>
                       </>
                     )}

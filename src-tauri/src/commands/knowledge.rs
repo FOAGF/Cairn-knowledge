@@ -349,10 +349,7 @@ pub async fn save_attachment(
     use base64::Engine;
     let bytes = base64::engine::general_purpose::STANDARD
         .decode(data_base64.as_bytes())
-        .map_err(|e| ApiError {
-            kind: "invalid".into(),
-            message: format!("The image data is not valid: {e}"),
-        })?;
+        .map_err(|e| ApiError::invalid(format!("The image data is not valid: {e}")))?;
     state
         .with_db(move |db| attachments::save(db, &bytes, &mime))
         .await
@@ -499,12 +496,7 @@ pub async fn dev_seed_knowledge(
     state: State<'_, AppState>,
     seed: KnowledgeSeed,
 ) -> ApiResult<()> {
-    if !cfg!(debug_assertions) {
-        return Err(ApiError {
-            kind: "invalid".into(),
-            message: "Demo data is only available in development builds.".into(),
-        });
-    }
+    crate::error::dev_only()?;
     state
         .with_db(move |db| knowledge::seed_if_missing(db, seed))
         .await?;

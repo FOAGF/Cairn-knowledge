@@ -6,6 +6,7 @@
 use std::path::{Path, PathBuf};
 
 use cairn_core::knowledge::external::scan::{self, Scope};
+use cairn_core::opened::{self, OpenedKind};
 use cairn_core::settings::{self, KnowledgeMode};
 use cairn_core::tasks::{self, TaskStatus};
 use cairn_core::{DataPaths, Db, export, migrations};
@@ -18,6 +19,7 @@ const FIXTURES: &[(&str, u32)] = &[
     ("0.11.0", 8),
     ("0.12.1", 9),
     ("0.17.0", 10),
+    ("1.0.4", 11),
 ];
 
 /// (folder, schema version) of the fixtures in external mode (D-72, from schema 10), which also
@@ -223,6 +225,11 @@ fn check(db: &mut Db, name: &str, schema: u32, notes: Option<&Path>) {
         "SELECT count(*) FROM conversations WHERE archived_at IS NOT NULL",
     );
     assert_eq!(archived, (schema >= 8) as i64, "{context}");
+    // D-94: the task and the page were opened (from schema 11).
+    let opened = |kind: OpenedKind| opened::recent(conn, kind, 10).unwrap();
+    let expected = |id: &str| if schema >= 11 { vec![id.to_string()] } else { vec![] };
+    assert_eq!(opened(OpenedKind::Task), expected(&task.id), "{context}");
+    assert_eq!(opened(OpenedKind::Page), expected(&page_id), "{context}");
     if let Some(notes) = notes {
         check_external(db, name, notes);
     }

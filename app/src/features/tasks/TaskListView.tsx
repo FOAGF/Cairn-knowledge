@@ -9,6 +9,7 @@ import type { Category } from '@/api/bindings'
 import { useT } from '@/i18n'
 import { cn } from '@/lib/utils'
 import { DueText } from './taskUi'
+import { isClosed } from '@/lib/labels'
 
 export type TaskSelection = {
   selected: Set<string>
@@ -33,7 +34,7 @@ export function TaskListView({ tasks, categories, selection }: { tasks: Task[]; 
       </label>
       <ul className="divide-y border-t">
         {tasks.map((t) => {
-          const closed = t.status === 'done' || t.status === 'wont_do'
+          const closed = isClosed(t.status)
           const isTicked = selected.has(t.id)
           return (
             <li

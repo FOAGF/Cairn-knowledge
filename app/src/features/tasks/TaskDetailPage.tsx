@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
 import { useDraft } from '@/api/drafts'
+import { recordOpened } from '@/api/opened'
 import { DraftRestorePrompt, draftText } from '@/components/editor/DraftRestorePrompt'
 import { MarkdownField } from '@/components/editor/MarkdownField'
 import { MarkdownView } from '@/components/shared/MarkdownView'
@@ -10,9 +11,9 @@ import { EmptyState, SectionCard } from '@/components/shared/PageHeader'
 import { StatusDropdown, useChangeTask } from '@/components/shared/task-status'
 import { PriorityIcon, CategoryDot, TaskTypeIcon } from '@/components/shared/tint'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { useT } from '@/i18n'
 import { fullDate } from '@/lib/format'
 import { priorityLabel, PRIORITY_ORDER, TYPE_ORDER } from '@/lib/labels'
@@ -194,6 +195,12 @@ export default function TaskDetailPage() {
   const t = useT()
   const d = t.tasks.detail
 
+  // D-94: the `#` suggestions list the tasks opened last first.
+  const taskId = task?.id
+  useEffect(() => {
+    if (taskId) recordOpened('task', taskId)
+  }, [taskId])
+
   // An old key (after a move) resolves to the task; show it under its current key (FR-TASK-UI-6).
   useEffect(() => {
     if (task && taskKey && task.key !== taskKey) {
@@ -282,33 +289,22 @@ export default function TaskDetailPage() {
       </div>
 
       {/* FR-TASK-UI-3: deleting asks for confirmation */}
-      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{d.deleteTitle(task.key)}</DialogTitle>
-            <DialogDescription>{d.deleteDescription(task.title)}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmDelete(false)}>
-              {t.common.cancel}
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                deleteTask.mutate(task.id, {
-                  onSuccess: () => {
-                    setConfirmDelete(false)
-                    toast.success(d.deleted(task.key))
-                    navigate('/tasks')
-                  },
-                })
-              }}
-            >
-              {d.deleteTask}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={confirmDelete}
+        title={d.deleteTitle(task.key)}
+        description={d.deleteDescription(task.title)}
+        confirmLabel={d.deleteTask}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={() =>
+          deleteTask.mutate(task.id, {
+            onSuccess: () => {
+              setConfirmDelete(false)
+              toast.success(d.deleted(task.key))
+              navigate('/tasks')
+            },
+          })
+        }
+      />
     </div>
   )
 }

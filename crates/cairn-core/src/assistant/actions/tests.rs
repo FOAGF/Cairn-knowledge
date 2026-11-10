@@ -4,7 +4,6 @@ use super::*;
 use crate::assistant::formats::candidates_block;
 use crate::assistant::items::{ItemRef, load};
 use crate::knowledge::NewPage;
-use crate::categories::{NewCategory, CategoryColor};
 
 struct Env {
     _dir: tempfile::TempDir,
@@ -20,17 +19,7 @@ fn env() -> Env {
     let dir = tempfile::tempdir().unwrap();
     let mut db = Db::open_at(dir.path()).unwrap();
     let mk = |db: &Db, name: &str, key: &str| {
-        categories::create(
-            db.conn(),
-            NewCategory {
-                name: name.into(),
-                key: key.into(),
-                description: String::new(),
-                color: CategoryColor::preset("blue"),
-            },
-        )
-        .unwrap()
-        .id
+        crate::test_util::category(db.conn(), name, key)
     };
     let a = mk(&db, "Alpha", "AAA");
     let b = mk(&db, "Beta", "BBB");

@@ -11,6 +11,7 @@ use crate::state::AppState;
 #[derive(Debug, Clone, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AppInfo {
+    /// The build's version (D-90): `1.0.0` from a tagged commit, `1.0.0-47-g3bb7870` after it.
     pub version: String,
     /// When this build was made, in UTC (RFC 3339), for Settings › About (UI-SET-5).
     pub build_time: Option<String>,
@@ -32,7 +33,7 @@ pub async fn app_info(state: State<'_, AppState>) -> ApiResult<AppInfo> {
     let schema_version = state.with_db(|db| db.schema_version()).await?;
     let data_folder_warning = cairn_core::paths::onedrive_warning(&state.paths.root);
     Ok(AppInfo {
-        version: env!("CARGO_PKG_VERSION").into(),
+        version: env!("CAIRN_BUILD_VERSION").into(),
         build_time: build_time(),
         commit: option_env!("CAIRN_GIT_COMMIT").map(String::from),
         local_changes: option_env!("CAIRN_GIT_DIRTY").is_some(),
@@ -79,10 +80,7 @@ pub async fn open_url(url: String) -> ApiResult<()> {
     let url = url.trim().to_string();
     let scheme_ok = url.starts_with("https://") || url.starts_with("http://");
     if !scheme_ok || url.chars().any(char::is_whitespace) {
-        return Err(ApiError {
-            kind: "invalid".into(),
-            message: "Only web addresses (http or https) can be opened.".into(),
-        });
+        return Err(ApiError::invalid("Only web addresses (http or https) can be opened."));
     }
     open_with_system(&url).map_err(|e| {
         tracing::warn!(error = %e, "could not start the browser");
@@ -132,16 +130,10 @@ pub async fn open_folder(state: State<'_, AppState>, which: AppFolder) -> ApiRes
             match storage.root {
                 Some(root) if storage.root_exists => std::path::PathBuf::from(root),
                 Some(root) => {
-                    return Err(ApiError {
-                        kind: "invalid".into(),
-                        message: format!("The knowledge folder \"{root}\" can't be found."),
-                    });
+                    return Err(ApiError::invalid(format!("The knowledge folder \"{root}\" can't be found.")));
                 }
                 None => {
-                    return Err(ApiError {
-                        kind: "invalid".into(),
-                        message: "Knowledge is not kept in a folder.".into(),
-                    });
+                    return Err(ApiError::invalid("Knowledge is not kept in a folder."));
                 }
             }
         }
@@ -181,4 +173,27 @@ fn open_with_system(target: &str) -> std::io::Result<()> {
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null());
     cmd.spawn().map(|_| ())
+}
+
+#[cfg(test)]
+mod tests {
+    /// D-90: build.rs and `packaging/version.sh` (which names the release files) give the same
+    /// version. The script adds `-dirty` for uncommitted changes; development builds leave it out.
+    #[test]
+    fn the_build_version_is_the_one_the_release_scripts_use() {
+        let script =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../packaging/version.sh");
+        // Without bash (Windows without Git Bash) there is nothing to compare with.
+        let Ok(out) = std::process::Command::new("bash").arg(&script).output() else {
+            return;
+        };
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        let printed = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        let printed = printed.strip_suffix("-dirty").unwrap_or(&printed);
+        assert_eq!(printed, env!("CAIRN_BUILD_VERSION"));
+    }
 }

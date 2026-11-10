@@ -288,6 +288,8 @@ def complete(rid, p):
     entry = {"method": "llm.complete", "kind": kind, "chars": total, "stream": bool(p.get("stream")),
              "model": p["target"].get("model")}
     everything = "\n".join(text_of(m["content"]) for m in messages)
+    if kind == "revise":
+        entry["messages"] = messages
     web = None
     if kind in ASSISTANT_KINDS:
         entry.update({"last": text_of(messages[-1]["content"]), "n_messages": len(messages),

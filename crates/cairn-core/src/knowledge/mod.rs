@@ -36,7 +36,8 @@ use rusqlite::{Connection, OptionalExtension, Row, params, params_from_iter};
 
 use crate::bulk::BulkResult;
 use crate::tasks::history::log_activity;
-use crate::tasks::{ActivityKind, Stamp, date_str, enum_str, parse_enum};
+use crate::tasks::{ActivityKind, Stamp, date_str};
+use crate::util::{enum_str, parse_enum};
 use crate::util::{new_id, now_iso};
 use crate::{CoreError, Db, Result, attachments, hooks, categories, tasks};
 pub use folders::*;
@@ -307,7 +308,7 @@ pub fn update_group(db: &mut Db, id: &str, patch: GroupPatch) -> Result<Group> {
 pub fn delete_group(db: &mut Db, id: &str) -> Result<()> {
     db.tx(|tx| {
         if let Some(ext) = external::active(tx)? {
-            return external::pages::delete_group(tx, &ext, id, &Stamp::now());
+            return external::pages::delete_group(tx, &ext, id);
         }
         get_group(tx, id)?;
         // pages.group_id is ON DELETE SET NULL.
@@ -524,15 +525,15 @@ fn check_title_free(
     Ok(())
 }
 
-/// The group must exist and belong to the page's category.
-fn check_group(conn: &Connection, category_id: &str, group_id: &str) -> Result<()> {
+/// The group, which must exist and belong to the category `category_id`.
+fn check_group(conn: &Connection, category_id: &str, group_id: &str) -> Result<Group> {
     let g = get_group(conn, group_id)?;
     if g.category_id != category_id {
         return Err(CoreError::Invalid(
             "The group belongs to another category.".into(),
         ));
     }
-    Ok(())
+    Ok(g)
 }
 
 /// Writes the page's own columns and its tags.
@@ -745,10 +746,10 @@ pub(crate) fn update_page_in(
     if p.title != old.title {
         check_title_free(conn, &p.category_id, &p.title, Some(&p.id))?;
     }
-    if p.group_id != old.group_id {
-        if let Some(g) = &p.group_id {
-            check_group(conn, &p.category_id, g)?;
-        }
+    if p.group_id != old.group_id
+        && let Some(g) = &p.group_id
+    {
+        check_group(conn, &p.category_id, g)?;
     }
     commit_change(conn, &mut p, st)?;
     Ok(p)
@@ -799,7 +800,7 @@ fn set_archived_in(conn: &Connection, id: &str, archived: bool, st: &Stamp) -> R
     Ok(p)
 }
 
-/// Used by the save pipeline and the check screens (simulated until M5).
+/// Used by the save pipeline and the check screens.
 pub fn set_check_status(db: &mut Db, id: &str, status: CheckStatus) -> Result<Page> {
     db.tx(|tx| set_check_status_in(tx, id, status))
 }

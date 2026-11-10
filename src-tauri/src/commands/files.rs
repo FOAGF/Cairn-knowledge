@@ -11,6 +11,7 @@
 //!    drafts (`draft-file`, or excerpts / parts per `cairn_core::sources`, FR-KN-UP-4a), streamed
 //!    as `LlmDelta` with the message id as stream id; 5. the `check` call (default model) fills the
 //!    card's group, tags, topics and glossary suggestions; 6. the message gets its card.
+//!
 //! Every step updates the stored message and emits `DataChanged { conversations }`. A failure puts
 //! a `MessageError` on the message (with `can_use_as_is` when the text was read).
 //!
@@ -30,6 +31,7 @@ use std::sync::{Arc, Mutex};
 
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
+use cairn_core::assistant::references;
 use cairn_core::chunking::estimate_tokens;
 use cairn_core::conversations::{
     self, ChatAttachment, ChatMessage, ChatRole, ChatStep, DraftCard, DraftState, FileKind,
@@ -94,12 +96,6 @@ impl Uploads {
     }
 }
 
-pub(crate) fn invalid(message: impl Into<String>) -> ApiError {
-    ApiError {
-        kind: "invalid".into(),
-        message: message.into(),
-    }
-}
 
 /// FR-KN-UP-1: the file type from the extension.
 fn kind_of(file_name: &str) -> Option<(FileKind, String)> {
@@ -150,7 +146,7 @@ pub(crate) fn begin_upload(
     size: u32,
 ) -> ApiResult<String> {
     let (kind, ext) = kind_of(file_name).ok_or_else(|| {
-        invalid(format!(
+        ApiError::invalid(format!(
             "Cairn can read {FILE_TYPES} files. \"{file_name}\" is not one of them."
         ))
     })?;
@@ -190,14 +186,14 @@ pub(crate) fn append_chunk(uploads: &Uploads, upload_id: &str, data_base64: &str
     use std::io::Write;
     let bytes = STANDARD
         .decode(data_base64)
-        .map_err(|_| invalid("A part of the file could not be read. Attach the file again."))?;
+        .map_err(|_| ApiError::invalid("A part of the file could not be read. Attach the file again."))?;
     let mut files = uploads.lock();
     let up = files.get_mut(upload_id).ok_or_else(|| ApiError {
         kind: "not_found".into(),
         message: "This upload is no longer there. Attach the file again.".into(),
     })?;
     if up.written + bytes.len() as u64 > u64::from(up.size) {
-        return Err(invalid(
+        return Err(ApiError::invalid(
             "The file is larger than announced. Attach it again.",
         ));
     }
@@ -244,18 +240,18 @@ fn read_dropped(uri: &str) -> ApiResult<DroppedFile> {
         .ok()
         .filter(|u| u.scheme() == "file")
         .and_then(|u| u.to_file_path().ok())
-        .ok_or_else(|| invalid("Cairn couldn’t read the dropped item. Use the attach button instead."))?;
+        .ok_or_else(|| ApiError::invalid("Cairn couldn’t read the dropped item. Use the attach button instead."))?;
     let name = path
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_default();
     if kind_of(&name).is_none() {
-        return Err(invalid(format!(
+        return Err(ApiError::invalid(format!(
             "Cairn can read {FILE_TYPES} files. \"{name}\" is not one of them."
         )));
     }
     if !path.is_file() {
-        return Err(invalid(format!("\"{name}\" is not a file Cairn can open.")));
+        return Err(ApiError::invalid(format!("\"{name}\" is not a file Cairn can open.")));
     }
     let bytes = std::fs::read(&path).map_err(cairn_core::CoreError::from)?;
     Ok(DroppedFile {
@@ -307,12 +303,10 @@ pub struct ChatJobStarted {
 pub async fn start_file_draft(
     app: AppHandle,
     state: State<'_, AppState>,
-    sidecars: State<'_, Sidecars>,
     jobs: State<'_, Arc<Jobs>>,
     uploads: State<'_, Uploads>,
     input: FileDraftInput,
 ) -> ApiResult<ChatJobStarted> {
-    let _ = &sidecars;
     let (job, started) = prepare_file_draft(&state, &uploads, input).await?;
     emit_changed(&app, &[Entity::Conversations]);
     spawn_job(
@@ -333,7 +327,7 @@ async fn prepare_file_draft(
     let upload = uploads.take(&input.upload_id)?;
     if upload.written != u64::from(upload.size) {
         remove_path(&upload.path);
-        return Err(invalid("The upload did not finish. Attach the file again."));
+        return Err(ApiError::invalid("The upload did not finish. Attach the file again."));
     }
     let instruction = input.instruction.trim().to_string();
     let (model_id, model_label) = chat_model(state, input.model_id.clone()).await;
@@ -401,11 +395,9 @@ async fn prepare_file_draft(
 pub async fn revise_draft(
     app: AppHandle,
     state: State<'_, AppState>,
-    sidecars: State<'_, Sidecars>,
     jobs: State<'_, Arc<Jobs>>,
     input: ReviseInput,
 ) -> ApiResult<ChatJobStarted> {
-    let _ = &sidecars;
     let (job, started) = prepare_revise(&state, input).await?;
     emit_changed(&app, &[Entity::Conversations]);
     spawn_job(
@@ -428,10 +420,10 @@ async fn prepare_revise(
             Ok(active_card(&all).map(|(_, c)| c.clone()))
         })
         .await?
-        .ok_or_else(|| invalid("There is no draft to revise in this conversation."))?;
+        .ok_or_else(|| ApiError::invalid("There is no draft to revise in this conversation."))?;
     let request = input.text.trim().to_string();
     if request.is_empty() {
-        return Err(invalid("Write what should change in the draft."));
+        return Err(ApiError::invalid("Write what should change in the draft."));
     }
     let (model_id, model_label) = chat_model(state, input.model_id.clone()).await;
     let effort = input.effort.clone();
@@ -488,12 +480,10 @@ async fn prepare_revise(
 pub async fn retry_chat_job(
     app: AppHandle,
     state: State<'_, AppState>,
-    sidecars: State<'_, Sidecars>,
     jobs: State<'_, Arc<Jobs>>,
     message_id: String,
     model_id: Option<String>,
 ) -> ApiResult<()> {
-    let _ = &sidecars;
     let id = message_id.clone();
     let (job, assistant) = state
         .with_db(move |db| plan_retry(db, &id, model_id))
@@ -800,6 +790,22 @@ impl Ctx<'_> {
         reply
     }
 
+    /// A call whose reply is a JSON object, as [`llm::complete_json`]: one `check-retry` when the
+    /// first reply can't be read, then the `ai_unreadable` error.
+    pub(crate) async fn complete_json(
+        &self,
+        target: &cairn_core::providers::CallTarget,
+        messages: &[LlmMessage],
+        opts: &CallOptions,
+    ) -> ApiResult<serde_json::Map<String, serde_json::Value>> {
+        let first = self.complete(target, messages, opts).await?;
+        if let Some(v) = cairn_core::replies::json_object(&first.text) {
+            return Ok(v);
+        }
+        let second = self.complete(target, &llm::json_retry(messages, &first.text)?, opts).await?;
+        cairn_core::replies::json_object(&second.text).ok_or_else(llm::unreadable)
+    }
+
     /// D-65: the reasoning tokens of this job's calls so far; `None` when none were reported.
     pub(crate) fn reasoning_tokens(&self) -> Option<u32> {
         let n = self.tally.reasoning.load(Ordering::Relaxed);
@@ -930,7 +936,7 @@ impl Drop for StopGuard {
         let Some(db) = self.db.take() else { return };
         let (app, id) = (self.app.take(), std::mem::take(&mut self.message_id));
         std::thread::spawn(move || {
-            let Ok(mut db) = db.lock() else { return };
+            let mut db = crate::state::lock_db(&db);
             let result = conversations::fail_message(&mut db, &id, llm::CANCELLED, "Stopped.");
             if let Err(e) = result {
                 tracing::warn!(error = %e, "could not record that a chat job was stopped");
@@ -1179,13 +1185,7 @@ pub(crate) async fn read_file(
             )
         };
         let step = progress.begin(ctx, label(0)).await;
-        let opts = CallOptions {
-            stream_id: None,
-            timeout_s: Some(OCR_TIMEOUT_S),
-            max_tokens: None,
-            effort: None,
-            web_search: None,
-        };
+        let opts = CallOptions::new(None, None, OCR_TIMEOUT_S);
         // Boxed, because a closure over borrowed state confuses the compiler's Send check.
         type PageRead<'a> = std::pin::Pin<
             Box<dyn std::future::Future<Output = ApiResult<(usize, String)>> + Send + 'a>,
@@ -1279,14 +1279,14 @@ pub(crate) async fn file_job(ctx: &Ctx<'_>, job: &FileJob, progress: &mut Progre
                 .await
                 .map_err(plain)?;
             let text = file.text.ok_or_else(|| {
-                plain(invalid(
+                plain(ApiError::invalid(
                     "The file's text is no longer kept. Attach the file again.",
                 ))
             })?;
             progress.text_ready = true;
             (file.id, text)
         }
-        (None, None) => return Err(plain(invalid("The file's text was not read yet."))),
+        (None, None) => return Err(plain(ApiError::invalid("The file's text was not read yet."))),
     };
 
     let base = DraftCard {
@@ -1365,20 +1365,9 @@ fn is_too_long(e: &ApiError) -> bool {
     e.kind == "ai_too_long"
 }
 
-struct Drafted {
-    title: String,
-    body: String,
-    incomplete: bool,
-}
 
 fn page_options(stream: Option<&str>, effort: Option<String>) -> CallOptions {
-    CallOptions {
-        stream_id: stream.map(str::to_string),
-        timeout_s: Some(DRAFT_TIMEOUT_S),
-        max_tokens: None,
-        effort,
-        web_search: None,
-    }
+    CallOptions::new(stream, effort, DRAFT_TIMEOUT_S)
 }
 
 /// Step 4: the conversation's model drafts the page (FR-KN-UP-3, 4a, 5, 9).
@@ -1387,7 +1376,7 @@ async fn draft_file(
     job: &FileJob,
     text: &str,
     progress: &mut Progress,
-) -> ApiResult<Drafted> {
+) -> ApiResult<DraftText> {
     let resolved = llm::resolve(ctx.state, ModelRole::Conversation, job.model_id.clone()).await?;
     let label = resolved.model.label.clone();
     let step = progress
@@ -1398,7 +1387,7 @@ async fn draft_file(
     let stream = job.assistant_id.as_str();
     loop {
         let (plan, allowed) = fit.plan(text);
-        let attempt: ApiResult<Drafted> = match plan {
+        let attempt: ApiResult<DraftText> = match plan {
             SourcePlan::Whole | SourcePlan::Excerpts => {
                 let excerpts = plan == SourcePlan::Excerpts;
                 let source = if excerpts {
@@ -1416,7 +1405,7 @@ async fn draft_file(
                     prompts::draft_file(&job.name, &source, &job.instruction, excerpts, &glossary)?;
                 ctx.complete(&resolved.target, &messages, &page_options(Some(stream), job.effort.clone()))
                     .await
-                    .map(|reply| from_reply(&reply, file_stem(&job.name)))
+                    .map(|reply| DraftText::from_reply(&reply, file_stem(&job.name)))
             }
             SourcePlan::Parts(parts) => {
                 draft_in_parts(ctx, job, &resolved, &parts, allowed, progress, step, &label).await
@@ -1426,15 +1415,6 @@ async fn draft_file(
             Err(e) if is_too_long(&e) && fit.shrink(allowed) => continue,
             other => return other,
         }
-    }
-}
-
-fn from_reply(reply: &llm::Reply, fallback: &str) -> Drafted {
-    let d = DraftText::from_reply(reply, fallback);
-    Drafted {
-        title: d.title,
-        body: d.body,
-        incomplete: d.incomplete,
     }
 }
 
@@ -1450,7 +1430,7 @@ async fn draft_in_parts(
     progress: &mut Progress,
     step: usize,
     label: &str,
-) -> ApiResult<Drafted> {
+) -> ApiResult<DraftText> {
     let n = parts.len();
     let mut incomplete = false;
     let mut drafts: Vec<String> = Vec::with_capacity(n);
@@ -1519,7 +1499,7 @@ async fn draft_in_parts(
             &page_options(Some(&job.assistant_id), job.effort.clone()),
         )
         .await?;
-    let mut out = from_reply(&reply, file_stem(&job.name));
+    let mut out = DraftText::from_reply(&reply, file_stem(&job.name));
     out.incomplete |= incomplete;
     // README "Local checks": a combined page far shorter than the drafts was probably summarised.
     if estimate_tokens(&out.body) * 2 < total {
@@ -1553,19 +1533,14 @@ pub(crate) async fn score_by_meaning(
     query: &str,
 ) -> Result<Vec<f32>, crate::sidecar::SidecarError> {
     let q = ctx.sidecars.embed_query(query).await?;
-    let mut scores = Vec::with_capacity(pieces.len());
-    // Small batches, so a search never waits long behind this (PROTOCOL.md "Concurrency").
-    for batch in pieces.chunks(8) {
-        let docs = ctx
-            .sidecars
-            .embed_documents(batch.iter().map(|p| (String::new(), p.clone())).collect())
-            .await?;
-        scores.extend(
-            docs.iter()
-                .map(|d| q.iter().zip(d).map(|(a, b)| a * b).sum::<f32>()),
-        );
-    }
-    Ok(scores)
+    let docs = ctx
+        .sidecars
+        .embed_all(pieces.iter().map(|p| (String::new(), p.clone())).collect())
+        .await?;
+    Ok(docs
+        .iter()
+        .map(|d| q.iter().zip(d).map(|(a, b)| a * b).sum::<f32>())
+        .collect())
 }
 
 pub(crate) fn score_by_words(pieces: &[String], query: &str) -> Vec<f32> {
@@ -1659,6 +1634,7 @@ async fn revise_job(
     progress: &mut Progress,
 ) -> Result<Done, JobError> {
     let (conversation_id, assistant_id) = (job.conversation_id.clone(), job.assistant_id.clone());
+    let request = job.request.clone();
     let loaded = ctx
         .state
         .with_db(move |db| {
@@ -1690,7 +1666,7 @@ async fn revise_job(
                     } else {
                         Role::Assistant
                     };
-                    LlmMessage::new(role, m.text.clone())
+                    LlmMessage::new(role, references::for_model(db.conn(), &m.text))
                 })
                 .collect();
             // The request itself is the last user message.
@@ -1702,14 +1678,16 @@ async fn revise_job(
                 card_message.id.clone(),
                 card.clone(),
                 file,
-                instruction,
+                references::for_model(db.conn(), &instruction),
                 earlier,
+                references::for_model(db.conn(), &request),
+                references::source_text(db.conn(), &request)?,
             )))
         })
         .await
         .map_err(plain)?;
-    let Some((card_message_id, old, file, instruction, earlier)) = loaded else {
-        return Err(plain(invalid("There is no draft to revise any more.")));
+    let Some((card_message_id, old, file, instruction, earlier, request, referenced)) = loaded else {
+        return Err(plain(ApiError::invalid("There is no draft to revise any more.")));
     };
 
     let resolved = llm::resolve(ctx.state, ModelRole::Conversation, job.model_id.clone())
@@ -1723,9 +1701,14 @@ async fn revise_job(
         .await;
     // The source text (FR-KN-UP-6); a card without one (or after it was released) is revised
     // from its own text.
-    let source_text = file
+    let mut source_text = file
         .and_then(|f| f.text)
         .unwrap_or_else(|| old.body.clone());
+    // FR-LLM-AS-14: references in a revision are sources too, including pages outside the scope.
+    if !referenced.is_empty() {
+        source_text.push_str("\n\n");
+        source_text.push_str(&referenced);
+    }
     let file_name = old.file_name.clone().unwrap_or_else(|| old.title.clone());
     let size = llm::context_size(ctx.sidecars, &resolved).await;
     let mut fit = Fit::new(&source_text, sources::budget(size), true);
@@ -1734,12 +1717,12 @@ async fn revise_job(
         let (source, excerpts) = match plan {
             SourcePlan::Whole | SourcePlan::Parts(_) => (source_text.clone(), false),
             SourcePlan::Excerpts => (
-                pick_excerpts(ctx, &source_text, &job.request, allowed).await,
+                pick_excerpts(ctx, &source_text, &request, allowed).await,
                 true,
             ),
         };
         let glossary = ctx
-            .glossary(&old.category_id, vec![source.clone(), job.request.clone()])
+            .glossary(&old.category_id, vec![source.clone(), request.clone()])
             .await;
         let messages = prompts::revise(
             &file_name,
@@ -1749,7 +1732,7 @@ async fn revise_job(
             &glossary,
             &old.body,
             &earlier,
-            &job.request,
+            &request,
         )
         .map_err(|e| plain(e.into()))?;
         match ctx
@@ -1773,7 +1756,7 @@ async fn revise_job(
             card: None,
         });
     }
-    let page = from_reply(&reply, &old.title);
+    let page = DraftText::from_reply(&reply, &old.title);
     let mut card = DraftCard {
         title: page.title,
         body: page.body,

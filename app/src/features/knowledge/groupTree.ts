@@ -66,6 +66,16 @@ export function isGroupPath(name: string): boolean {
 }
 
 /**
+ * Makes the new group `name` that a check or *Suggest groups* proposed, and returns its id: in
+ * external mode "A / B" makes the missing groups inside each other (D-72). Errors are thrown, for
+ * the caller to show.
+ */
+export async function createGroupNamed(categoryId: string, name: string, description?: string | null): Promise<string> {
+  if (isGroupPath(name)) return ensureGroupPath(categoryId, name, description)
+  return (await commands.createGroup({ categoryId, name, description: description || null })).id
+}
+
+/**
  * Makes the groups of "A / B / C" that are missing, each inside the one before, and returns the id of
  * the last. `description` goes to the last one when it is new.
  */

@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useT } from '@/i18n'
-import { STATUS_TINT, TINT_TEXT } from '@/lib/labels'
+import { STATUS_TINT, TINT_TEXT, isClosed } from '@/lib/labels'
 import { ALL_TASKS, type Task, type TaskLink, useAddTaskLink, useRemoveTaskLink, useTaskLinks, useTaskList, useTasks } from '@/api/tasks'
 import { type PageFilter, useBacklinks, useLinkTaskPage, usePageList, useTaskPageLinks, useUnlinkTaskPage } from '@/api/knowledge'
 import { cn } from '@/lib/utils'
@@ -20,7 +20,7 @@ const WITH_ARCHIVED: PageFilter = { includeArchived: true }
 
 function TaskRow({ task, onRemove }: { task: Task; onRemove: () => void }) {
   const t = useT()
-  const closed = task.status === 'done' || task.status === 'wont_do'
+  const closed = isClosed(task.status)
   return (
     <li className="group flex items-center gap-2 rounded-lg px-1.5 py-1 hover:bg-muted/50">
       <span className={cn('size-2 shrink-0 rounded-full', TINT_TEXT[STATUS_TINT[task.status]])} style={{ backgroundColor: 'currentcolor' }} />

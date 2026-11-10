@@ -2,10 +2,10 @@
 // and the chat jobs (stream id = the assistant message id), send their text as `LlmDelta` events.
 // One listener (mounted in the app shell) collects every stream from the start, so text that
 // arrives before a component subscribes is not lost.
-import { useEffect, useSyncExternalStore } from 'react'
+import { useSyncExternalStore } from 'react'
 import { newId } from '@/lib/id'
-import { commands, events } from './bindings'
-import { isApiError, isTauri } from './client'
+import { commands, events, type LlmDelta } from './bindings'
+import { isApiError, useTauriEvent } from './client'
 
 const streams = new Map<string, string>()
 const listeners = new Set<() => void>()
@@ -14,23 +14,14 @@ const notify = () => listeners.forEach((l) => l())
 /** A fresh id for a command's `streamId` (and its *Stop*). */
 export const newStreamId = () => newId('st')
 
+function onDelta({ streamId, text }: LlmDelta) {
+  streams.set(streamId, (streams.get(streamId) ?? '') + text)
+  notify()
+}
+
 /** Collects `LlmDelta` events. Mount once, in the app shell. */
 export function useLlmDeltaSync() {
-  useEffect(() => {
-    if (!isTauri()) return
-    let unlisten: (() => void) | undefined
-    let cancelled = false
-    void events.llmDelta
-      .listen(({ payload }) => {
-        streams.set(payload.streamId, (streams.get(payload.streamId) ?? '') + payload.text)
-        notify()
-      })
-      .then((fn) => (cancelled ? fn() : (unlisten = fn)))
-    return () => {
-      cancelled = true
-      unlisten?.()
-    }
-  }, [])
+  useTauriEvent(events.llmDelta, onDelta)
 }
 
 function subscribe(listener: () => void) {

@@ -5,7 +5,7 @@ Rust core area by area. How the whole app is run and built: [`../docs/developmen
 Spec: [`../docs/requirements.md`](../docs/requirements.md).
 
 - **Real data (Rust):** categories, settings, tasks, knowledge (groups, pages, history, links, search, drafts), AI providers and models, the glossary, conversations (messages, draft cards, file texts; `src/api/conversations.ts`), export/import. Read with TanStack Query hooks in `src/api/`.
-- **UI state in the Zustand store:** the draft in progress while it moves between screens (chat card → review → merge; `store/creation.ts`, saved to the browser's `localStorage`).
+- **UI state in the Zustand store:** the draft in progress while it moves between screens (chat card → review → merge; `store/creation.ts`, kept in memory and saved in the data folder as the pending page by `features/creation/pending.ts`).
 - **LLM features (M5, real):**
   - creating a page from a file in the Assistant, and revising the draft by chatting (Rust jobs);
   - the save checks: topic, group, tags, glossary suggestions, duplicates by meaning;
@@ -20,8 +20,6 @@ Spec: [`../docs/requirements.md`](../docs/requirements.md).
   - `features/assistant/AnswerView.tsx`: Markdown with `[n]` markers as links, chips for the cited sources, *N more searched*, the basis label, *Search all categories*, glossary suggestions.
   - `FindList.tsx` (find lists), `ProposalCard.tsx` (proposed changes), the composer's history left and 🌐 web search (one message; web sources open with `openUrl`, never in the window).
   - A file in a normal conversation goes with the message (`uploadId`); the empty *Create knowledge from a file* conversation and a draft being refined keep the M5 paths (`send.ts`).
-- The same React + TypeScript code will move into the Tauri app later; only the
-  data layer (`src/store`) is replaced.
 
 ## Run
 
@@ -47,8 +45,8 @@ npx tsc -b         # type-check
 src/
   App.tsx                 route map
   index.css               design tokens + global styles
-  lib/                    types, mock data, labels, formatting, mentions, search, workdays
-  store/                  Zustand store, one slice file per feature area
+  lib/                    types, labels, formatting, mentions, search, the dev seed's sample data
+  store/                  Zustand store (UI state only), one slice file per feature area
   components/
     ui/                   shadcn/ui primitives (generated; edit freely)
     layout/               AppShell, TopNav, AskBar, CommandPalette, ThemeSync

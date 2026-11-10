@@ -9,13 +9,12 @@ import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
 import { Switch } from '@/components/ui/switch'
 import { rebuildSearchIndex, useIndexProgress, useSidecarStatus } from '@/api/search'
-import { errorMessage } from '@/api/client'
+import { toastError } from '@/api/client'
 import { useSearchModelStatus } from '@/api/searchModel'
 import { useT } from '@/i18n'
 import { SettingRow } from './parts'
-import { SearchModelRow } from './SearchModelRow'
 
-/** Settings › Search: the search model (added later on a lite package, FR-RAG-EM-3), how far the index is, and the idle timeout (FR-RAG-IX-5, UI-SET-3). */
+/** Settings › Search: the search worker and its idle timeout, the minimum relevance, and how far the index is (FR-RAG-IX-5, UI-SET-3). The search model itself is in Models & defaults (D-91). */
 export function SearchTab() {
   const settings = useSettings()
   const update = useUpdateSettings()
@@ -32,7 +31,7 @@ export function SearchTab() {
     setRebuilding(true)
     rebuildSearchIndex()
       .then(() => toast.success(s.rebuilt))
-      .catch((e) => toast.error(errorMessage(e)))
+      .catch(toastError)
       .finally(() => setRebuilding(false))
   }
 
@@ -43,10 +42,9 @@ export function SearchTab() {
 
   return (
     <div className="space-y-6">
-      {/* FR-RAG-EM-1, EM-1a, EM-3 (D-82) */}
+      {/* FR-RAG-EM-1a */}
       <SectionCard icon={Cpu} tint="purple" title={s.modelTitle} description={s.modelDescription}>
         <div className="divide-y">
-          <SearchModelRow />
           {/* Without a model (a lite package, D-82) the worker never starts. */}
           {!notInstalled && (
             <SettingRow

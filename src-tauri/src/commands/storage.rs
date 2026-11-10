@@ -118,10 +118,7 @@ pub async fn switch_knowledge_to_internal(
         })
         .await?;
     if !is_external {
-        return Err(ApiError {
-            kind: "invalid".into(),
-            message: "Knowledge is already kept in Cairn.".into(),
-        });
+        return Err(ApiError::invalid("Knowledge is already kept in Cairn."));
     }
     tauri::async_runtime::spawn(folder.inner().clone().switch_to_internal(backup));
     Ok(())
@@ -139,10 +136,7 @@ pub async fn rescan_knowledge_folder(
         .with_db(|db| knowledge::external::is_external(db.conn()))
         .await?;
     if !is_external {
-        return Err(ApiError {
-            kind: "invalid".into(),
-            message: "Knowledge is not kept in a folder.".into(),
-        });
+        return Err(ApiError::invalid("Knowledge is not kept in a folder."));
     }
     let folder = folder.inner().clone();
     tauri::async_runtime::spawn(async move { folder.rescan().await });
@@ -256,10 +250,7 @@ pub async fn save_page_image(
     use base64::Engine;
     let bytes = base64::engine::general_purpose::STANDARD
         .decode(data_base64.as_bytes())
-        .map_err(|e| ApiError {
-            kind: "invalid".into(),
-            message: format!("The image data is not valid: {e}"),
-        })?;
+        .map_err(|e| ApiError::invalid(format!("The image data is not valid: {e}")))?;
     state
         .with_db(move |db| knowledge::save_image(db, &category_id, &bytes, &mime))
         .await
@@ -297,10 +288,7 @@ pub async fn reload_page_from_disk(
 #[specta::specta]
 pub async fn dev_sample_knowledge_folder(state: State<'_, AppState>) -> ApiResult<String> {
     if !cfg!(debug_assertions) {
-        return Err(ApiError {
-            kind: "invalid".into(),
-            message: "The sample knowledge folder is only available in development builds.".into(),
-        });
+        return Err(ApiError::invalid("The sample knowledge folder is only available in development builds."));
     }
     state
         .with_db(|db| mode::dev_copy_sample(db).map(|p| p.to_string_lossy().into_owned()))

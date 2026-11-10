@@ -332,7 +332,7 @@ const MESSAGE_COLS: &str = "id, conversation_id, role, text, model_id, effort, p
 fn expiry(archived_at: &str) -> Option<String> {
     let at = chrono::DateTime::parse_from_rfc3339(archived_at).ok()?;
     let end = at.with_timezone(&chrono::Utc) + chrono::Duration::days(ARCHIVE_DAYS);
-    Some(end.to_rfc3339_opts(chrono::SecondsFormat::Millis, true))
+    Some(crate::util::iso(end))
 }
 
 fn conversation_from_row(r: &Row) -> rusqlite::Result<Conversation> {

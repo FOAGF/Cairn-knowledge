@@ -635,7 +635,7 @@ pub fn update_provider(
     get_provider(db.conn(), secrets, id)
 }
 
-/// Clears the default / OCR model settings that point at one of `model_ids` (UI-SET-3).
+/// Clears the default / OCR / web search model settings that point at one of `model_ids` (UI-SET-3).
 /// Returns how many settings were cleared. Written directly so `settings.rs` stays unchanged:
 /// a setting holds its model id as a JSON string.
 fn clear_model_settings(conn: &Connection, model_ids: &[String]) -> Result<usize> {
@@ -643,7 +643,7 @@ fn clear_model_settings(conn: &Connection, model_ids: &[String]) -> Result<usize
     for id in model_ids {
         cleared += conn.execute(
             "UPDATE settings SET value = 'null'
-             WHERE key IN ('defaultModelId', 'ocrModelId') AND value = ?1",
+             WHERE key IN ('defaultModelId', 'ocrModelId', 'webSearchModelId') AND value = ?1",
             [serde_json::to_string(id)?],
         )?;
     }
@@ -914,7 +914,28 @@ pub fn set_web_search(db: &mut Db, id: &str, on: bool) -> Result<ModelConfig> {
     get_model(db.conn(), id)
 }
 
-/// Deletes the model; settings that pointed at it (default / OCR model) are cleared. Returns how
+/// The web search model (FR-LLM-AS-6, D-91): the one set in Settings while it is ticked *Web
+/// search*, else the only ticked model of an enabled provider, if there is exactly one. The UI
+/// picks it the same way (`webSearchModel` in `app/src/api/providers.ts`).
+pub fn web_search_model(conn: &Connection, set: Option<&str>) -> Result<Option<ModelConfig>> {
+    if let Some(id) = set {
+        match get_model(conn, id) {
+            Ok(m) if m.web_search => return Ok(Some(m)),
+            Ok(_) | Err(CoreError::NotFound { .. }) => {}
+            Err(e) => return Err(e),
+        }
+    }
+    let mut ticked = conn.prepare(&format!(
+        "SELECT {MODEL_COLUMNS} FROM models
+         WHERE web_search = 1 AND provider_id IN (SELECT id FROM providers WHERE enabled = 1)
+         LIMIT 2"
+    ))?;
+    let mut found: Vec<ModelConfig> =
+        ticked.query_map([], model_from_row)?.collect::<rusqlite::Result<_>>()?;
+    Ok(if found.len() == 1 { found.pop() } else { None })
+}
+
+/// Deletes the model; settings that pointed at it (default / OCR / web search model) are cleared. Returns how
 /// many settings were cleared.
 pub fn delete_model(db: &mut Db, id: &str) -> Result<usize> {
     get_model(db.conn(), id)?;
@@ -1492,6 +1513,37 @@ mod tests {
         assert_eq!(list_models(db.conn()).unwrap().last().unwrap().effort, good);
     }
 
+    /// D-91: the set model while it is ticked, else the only ticked model of an enabled provider.
+    #[test]
+    fn the_web_search_model_is_the_set_one_or_the_only_ticked_one() {
+        let (_d, mut db) = open();
+        let s = MemoryStore::default();
+        let a = azure(&mut db, &s, "A", V1);
+        let b = azure(&mut db, &s, "B", V1);
+        let ma = create_model(&mut db, new_model(&a.id, "m", RequestFormat::Responses)).unwrap();
+        let mb = create_model(&mut db, new_model(&b.id, "m", RequestFormat::Responses)).unwrap();
+        let pick = |db: &Db, set: Option<&str>| {
+            web_search_model(db.conn(), set).unwrap().map(|m| m.id)
+        };
+        assert_eq!(pick(&db, None), None);
+        // The set model needs its tick.
+        assert_eq!(pick(&db, Some(&ma.id)), None);
+        set_web_search(&mut db, &ma.id, true).unwrap();
+        assert_eq!(pick(&db, None), Some(ma.id.clone()));
+        assert_eq!(pick(&db, Some("gone")), Some(ma.id.clone()));
+        // Two ticked: only the set one.
+        set_web_search(&mut db, &mb.id, true).unwrap();
+        assert_eq!(pick(&db, None), None);
+        assert_eq!(pick(&db, Some(&mb.id)), Some(mb.id.clone()));
+        // A disabled provider's model doesn't count for the automatic choice.
+        let off = ProviderPatch {
+            enabled: Some(false),
+            ..Default::default()
+        };
+        update_provider(&mut db, &s, &b.id, off).unwrap();
+        assert_eq!(pick(&db, None), Some(ma.id.clone()));
+    }
+
     #[test]
     fn deleting_clears_settings_keys_and_models() {
         let (_d, mut db) = open();
@@ -1507,6 +1559,7 @@ mod tests {
             crate::settings::SettingsPatch {
                 default_model_id: Some(ma.id.clone()),
                 ocr_model_id: Some(mb.id.clone()),
+                web_search_model_id: Some(ma.id.clone()),
                 ..Default::default()
             },
         )
@@ -1514,9 +1567,9 @@ mod tests {
 
         // Deleting a model clears only the settings that pointed at it.
         assert_eq!(delete_model(&mut db, &ma2.id).unwrap(), 0);
-        assert_eq!(delete_model(&mut db, &ma.id).unwrap(), 1);
+        assert_eq!(delete_model(&mut db, &ma.id).unwrap(), 2);
         let st = crate::settings::get(db.conn()).unwrap();
-        assert_eq!(st.default_model_id, None);
+        assert_eq!((st.default_model_id, st.web_search_model_id), (None, None));
         assert_eq!(st.ocr_model_id.as_deref(), Some(mb.id.as_str()));
 
         // Deleting a provider removes its models and key and clears settings.

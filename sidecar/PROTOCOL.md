@@ -10,7 +10,7 @@ The app (Rust, `src-tauri/src/sidecar.rs`) talks to the Python sidecar (`sidecar
 ## Process rules
 - **Format:** newline-delimited JSON-RPC 2.0, UTF-8, one JSON object per line.
   - **stdout** carries protocol messages only, flushed after every message.
-  - **stderr** is free-form log text. The app copies it into its own log at debug level.
+  - **stderr** is free-form log text, one `[sidecar] LEVEL text` line per message (`rpc.log`). The app copies it into its own log by that level: errors and warnings as they are, info and debug as debug lines (kept only with *Detailed logs*), and a line without the prefix (a traceback) as a warning.
   - Logs never contain API keys or page/task content (NFR-SEC-3).
 - **Lifetime:**
   - The process exits with code 0 when **stdin closes**. The app closes stdin after the idle timeout (FR-RAG-EM-1a), so the sidecar keeps no timer of its own.

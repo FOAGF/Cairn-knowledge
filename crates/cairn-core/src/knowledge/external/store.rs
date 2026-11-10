@@ -185,7 +185,7 @@ pub(crate) fn category_dir(conn: &Connection, ext: &Ext, category_id: &str, make
         return Ok(folder);
     }
     let base = super::clean_name(&c.name, "Category");
-    let base = if base.eq_ignore_ascii_case("attachments") {
+    let base = if super::is_attachments(&base) {
         format!("{base} (category)")
     } else {
         base
@@ -240,7 +240,7 @@ fn group_path(conn: &Connection, group_id: &str) -> Result<String> {
         .query_row("SELECT path FROM groups WHERE id = ?1", [group_id], |r| r.get(0))
         .optional()?
         .flatten();
-    path.ok_or_else(|| CoreError::Invalid("This group has no folder in the knowledge folder.".into()))
+    path.ok_or_else(super::no_group_folder)
 }
 
 /// The folder a page of this category and group goes into.
@@ -459,7 +459,7 @@ pub(super) fn embed_path(
     }
     let top = here.split('/').next().unwrap_or("");
     if here.contains('/')
-        && let Some((attached, None)) = convert::resolve(&join(top, "attachments"), name)
+        && let Some((attached, None)) = convert::resolve(&join(top, super::ATTACHMENTS), name)
         && exists(&attached)
     {
         return Some(attached);
@@ -539,7 +539,7 @@ impl Places for DbFolder<'_> {
         }
         let category = self.category_id.clone()?;
         let dir = category_dir(self.conn, self.ext, &category, true).ok()?;
-        let path = join(&join(&dir, "attachments"), name);
+        let path = join(&join(&dir, super::ATTACHMENTS), name);
         let target = self.ext.writable(&path).ok()?;
         if !target.exists() {
             let bytes = std::fs::read(&source).ok()?;
@@ -721,7 +721,7 @@ pub(crate) fn drop_unused_images(conn: &Connection, ext: &Ext, candidates: &[Str
     for path in candidates {
         if !seen.insert(path.clone())
             || !super::valid_rel(path)
-            || !dir_of(path).split('/').any(|d| d.eq_ignore_ascii_case("attachments"))
+            || !dir_of(path).split('/').any(super::is_attachments)
         {
             continue;
         }
@@ -732,7 +732,8 @@ pub(crate) fn drop_unused_images(conn: &Connection, ext: &Ext, candidates: &[Str
             "SELECT 1 FROM drafts WHERE instr(content, ?1) > 0",
         ]
         .iter()
-        .any(|sql| conn.query_row(sql, [&needle], |_| Ok(())).optional().ok().flatten().is_some());
+        // A failed query counts as used: better to keep an image than to trash one in use.
+        .any(|sql| !matches!(conn.query_row(sql, [&needle], |_| Ok(())).optional(), Ok(None)));
         if used {
             continue;
         }
@@ -1211,7 +1212,7 @@ pub(crate) fn rename_category(conn: &Connection, ext: &Ext, category_id: &str, n
     if new == old {
         return Ok(());
     }
-    if new.eq_ignore_ascii_case("attachments") {
+    if super::is_attachments(&new) {
         return Err(CoreError::Invalid("A category can't be named \"attachments\" in a knowledge folder.".into()));
     }
     let used: Option<String> = conn
@@ -1248,14 +1249,10 @@ pub(crate) fn new_group_dir(
         Some(g) => g
             .path
             .clone()
-            .ok_or_else(|| CoreError::Invalid("This group has no folder in the knowledge folder.".into()))?,
+            .ok_or_else(super::no_group_folder)?,
         None => category_dir(conn, ext, category_id, true)?,
     };
-    if name.eq_ignore_ascii_case("attachments") {
-        return Err(CoreError::Invalid(
-            "\"attachments\" is the folder for a category's images. Choose another name.".into(),
-        ));
-    }
+    super::check_group_name(name)?;
     check_name_free(conn, ext, &dir, name, None, NameOf::Folder)?;
     let path = join(&dir, name);
     make_dir(&ext.writable(&path)?)?;
@@ -1274,9 +1271,4 @@ pub(crate) fn save_image(conn: &Connection, ext: &Ext, category_id: &str, bytes:
         super::write_atomic(&abs, bytes)?;
     }
     Ok(path)
-}
-
-/// For tests and tools: the absolute file of a page.
-pub fn page_file(ext: &Ext, page: &Page) -> Option<std::path::PathBuf> {
-    page.path.as_deref().and_then(|p| ext.abs(p))
 }

@@ -16,7 +16,7 @@ import { useFirstStart } from './firstStart'
 /**
  * FR-DATA-8, D-82: on a lite package, the search model isn't installed. Search by words works; the
  * note offers the download (after the Gemma terms tick), which carries on after the card closes.
- * Once started, the note shows its progress. *From file…* is only in Settings › Search.
+ * Once started, the note shows its progress. *From file…* is only in Settings › Models & defaults.
  */
 function SearchModelNote() {
   const status = useSearchModelStatus()

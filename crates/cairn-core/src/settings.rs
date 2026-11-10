@@ -61,6 +61,13 @@ pub struct Settings {
     /// Model ids arrive with providers in M4; plain strings for now.
     pub default_model_id: Option<String>,
     pub ocr_model_id: Option<String>,
+    /// FR-LLM-AS-6, D-91: answers web messages the conversation's model can't, and fetches the
+    /// tech news; `None` = the only model ticked *Web search*, if there is exactly one.
+    pub web_search_model_id: Option<String>,
+    /// FR-HOME-7, D-92: the *Tech news* card on Home.
+    pub tech_news: bool,
+    /// FR-HOME-7: what the news covers, as typed.
+    pub news_topics: String,
     /// FR-KN-ED-4: pages above this many words get a warning.
     pub word_warning_threshold: u32,
     /// FR-KN-UP-2: files above this size (MB) get a warning.
@@ -116,6 +123,9 @@ pub const RELEVANCE_MARGIN: f32 = 0.30;
 /// The smallest budget the settings accept, in tokens.
 pub const MIN_BUDGET_TOKENS: u32 = 1000;
 
+/// Default of [`Settings::news_topics`] (FR-HOME-7), also used when they are left empty.
+pub const DEFAULT_NEWS_TOPICS: &str = "technology";
+
 /// Default of [`Settings::switch_backup_warn_gb`] (FR-KN-EXT-9).
 pub const DEFAULT_SWITCH_BACKUP_WARN_GB: f32 = 2.0;
 
@@ -127,6 +137,9 @@ impl Default for Settings {
             language: Language::System,
             default_model_id: None,
             ocr_model_id: None,
+            web_search_model_id: None,
+            tech_news: false,
+            news_topics: DEFAULT_NEWS_TOPICS.into(),
             word_warning_threshold: 1000,
             large_file_warning_mb: 10,
             // Calibrated with poc/h-create/similarity_check.py: same topic 0.84–0.95, related 0.63–0.68.
@@ -152,7 +165,7 @@ impl Default for Settings {
     }
 }
 
-/// Only the fields that are `Some` change. For the two model ids, an empty string clears the choice.
+/// Only the fields that are `Some` change. For the model ids, an empty string clears the choice.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase", default)]
 pub struct SettingsPatch {
@@ -161,6 +174,9 @@ pub struct SettingsPatch {
     pub language: Option<Language>,
     pub default_model_id: Option<String>,
     pub ocr_model_id: Option<String>,
+    pub web_search_model_id: Option<String>,
+    pub tech_news: Option<bool>,
+    pub news_topics: Option<String>,
     pub word_warning_threshold: Option<u32>,
     #[serde(rename = "largeFileWarningMB")]
     pub large_file_warning_mb: Option<u32>,
@@ -214,6 +230,9 @@ pub fn get(conn: &Connection) -> Result<Settings> {
         language: field(&rows, "language", d.language),
         default_model_id: field(&rows, "defaultModelId", d.default_model_id),
         ocr_model_id: field(&rows, "ocrModelId", d.ocr_model_id),
+        web_search_model_id: field(&rows, "webSearchModelId", d.web_search_model_id),
+        tech_news: field(&rows, "techNews", d.tech_news),
+        news_topics: field(&rows, "newsTopics", d.news_topics),
         word_warning_threshold: field(&rows, "wordWarningThreshold", d.word_warning_threshold),
         large_file_warning_mb: field(&rows, "largeFileWarningMB", d.large_file_warning_mb),
         duplicate_score: field(&rows, "duplicateScore", d.duplicate_score),
@@ -360,7 +379,7 @@ fn validate(p: &SettingsPatch) -> Result<()> {
     Ok(())
 }
 
-fn put(conn: &Connection, key: &str, value: impl Serialize) -> Result<()> {
+pub(crate) fn put(conn: &Connection, key: &str, value: impl Serialize) -> Result<()> {
     conn.execute(
         "INSERT INTO settings (key, value) VALUES (?1, ?2)
          ON CONFLICT(key) DO UPDATE SET value = excluded.value",
@@ -392,6 +411,17 @@ pub fn update(db: &mut Db, patch: SettingsPatch) -> Result<Settings> {
         }
         if let Some(v) = &patch.ocr_model_id {
             put(tx, "ocrModelId", model_id(v))?;
+        }
+        if let Some(v) = &patch.web_search_model_id {
+            put(tx, "webSearchModelId", model_id(v))?;
+        }
+        if let Some(v) = patch.tech_news {
+            put(tx, "techNews", v)?;
+        }
+        if let Some(v) = &patch.news_topics {
+            // Empty goes back to the default.
+            let v = v.trim();
+            put(tx, "newsTopics", if v.is_empty() { DEFAULT_NEWS_TOPICS } else { v })?;
         }
         if let Some(v) = patch.word_warning_threshold {
             put(tx, "wordWarningThreshold", v)?;
@@ -470,10 +500,8 @@ pub fn set_data_folder(config_path: &Path, folder: &str) -> Result<()> {
     }
     std::fs::create_dir_all(path)
         .map_err(|e| CoreError::Invalid(format!("That folder cannot be created: {e}")))?;
-    let probe = path.join(".cairn-write-test");
-    std::fs::write(&probe, b"")
+    crate::util::try_write(path)
         .map_err(|e| CoreError::Invalid(format!("That folder is not writable: {e}")))?;
-    let _ = std::fs::remove_file(probe);
     let config = AppConfig {
         data_folder: Some(path.to_path_buf()),
     };
@@ -638,21 +666,53 @@ mod tests {
                     "Tauri ".into(),
                 ]),
                 ocr_model_id: Some("m1".into()),
+                web_search_model_id: Some("m2".into()),
                 ..patch()
             },
         )
         .unwrap();
         assert_eq!(s.personal_dictionary, vec!["Cairn", "Tauri"]);
         assert_eq!(s.ocr_model_id.as_deref(), Some("m1"));
+        assert_eq!(s.web_search_model_id.as_deref(), Some("m2"));
         let s = update(
             &mut db,
             SettingsPatch {
                 ocr_model_id: Some(String::new()),
+                web_search_model_id: Some(" ".into()),
                 ..patch()
             },
         )
         .unwrap();
-        assert_eq!(s.ocr_model_id, None);
+        assert_eq!((s.ocr_model_id, s.web_search_model_id), (None, None));
+    }
+
+    /// FR-HOME-7, D-92: off by default; empty topics go back to the default.
+    #[test]
+    fn tech_news_is_off_by_default_and_has_topics() {
+        let (_d, mut db) = open();
+        let s = get(db.conn()).unwrap();
+        assert!(!s.tech_news);
+        assert_eq!(s.news_topics, DEFAULT_NEWS_TOPICS);
+        let s = update(
+            &mut db,
+            SettingsPatch {
+                tech_news: Some(true),
+                news_topics: Some(" AI, Rust ".into()),
+                ..patch()
+            },
+        )
+        .unwrap();
+        assert!(s.tech_news);
+        assert_eq!(s.news_topics, "AI, Rust");
+        let s = update(
+            &mut db,
+            SettingsPatch {
+                news_topics: Some("  ".into()),
+                ..patch()
+            },
+        )
+        .unwrap();
+        assert_eq!(s.news_topics, DEFAULT_NEWS_TOPICS);
     }
 
     #[test]

@@ -3,7 +3,7 @@ import { save } from '@tauri-apps/plugin-dialog'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { commands } from '@/api/bindings'
-import { isTauri } from '@/api/client'
+import { errorMessage, isTauri } from '@/api/client'
 import { type MarkdownExportMode, type Page, useExportPageMarkdown } from '@/api/knowledge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -20,15 +20,22 @@ export function ExportDialog({ page, open, onClose }: { page: Page; open: boolea
   const run = async () => {
     if (!isTauri()) return toast.error(x.onlyInApp)
     const ext = mode === 'zip' ? 'zip' : 'md'
-    // D-58: a name that is also valid on Windows (Rust does the cleaning, the same on every platform).
-    // The fallback name is a suggested file name, so it stays English.
-    const name = await commands.safeFileName(page.title, 'page')
-    const path = await save({
-      defaultPath: `${name}.${ext}`,
-      filters: [{ name: mode === 'zip' ? x.zipArchive : 'Markdown', extensions: [ext] }],
-    })
+    let path: string | null
+    try {
+      // D-58: a name that is also valid on Windows (Rust does the cleaning, the same on every platform).
+      // The fallback name is a suggested file name, so it stays English.
+      const name = await commands.safeFileName(page.title, 'page')
+      path = await save({
+        defaultPath: `${name}.${ext}`,
+        filters: [{ name: mode === 'zip' ? x.zipArchive : 'Markdown', extensions: [ext] }],
+      })
+    } catch (e) {
+      return toast.error(errorMessage(e))
+    }
     if (!path) return // cancelled
-    const result = await exportPage({ pageId: page.id, path, mode })
+    // A failed export is shown by the mutation's own toast.
+    const result = await exportPage({ pageId: page.id, path, mode }).catch(() => null)
+    if (!result) return
     toast.success(x.exported, { description: `${result.path}${result.images ? x.images(result.images) : ''}` })
     onClose()
   }

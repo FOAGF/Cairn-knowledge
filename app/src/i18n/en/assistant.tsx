@@ -68,8 +68,10 @@ export const assistant = {
     remove: (name: string) => `Remove ${name}`,
     web: 'Web search for the next message',
     webUnsupported:
-      'Web search is not supported by the chosen model. To turn it on for a model, tick Web search in Settings › AI providers.',
+      'No model is set up for web search. Tick Web search on a model in Settings › AI providers, then choose it in Settings › Models & defaults.',
     webHint: 'Search the web for the next message only. Your notes are not included.',
+    webHintWith: (model: string) =>
+      `Search the web for the next message only, with ${model}, the web search model: the chosen model can't search. Your notes are not included.`,
     webUnavailable: 'Not available with a file, or while a draft is being refined.',
     send: 'Send',
     webOn: 'Web search is on for this message. Only what you type is sent: your notes, glossary and earlier messages are not included.',

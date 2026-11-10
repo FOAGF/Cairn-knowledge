@@ -99,7 +99,10 @@ pub(super) fn list_on(
         "ASC"
     };
     let order = match filter.sort.unwrap_or_default() {
-        TaskSortField::Due => format!("(t.due_date IS NULL) {dir}, t.due_date {dir}"),
+        // D-93: tasks on the same day, and those without a date, newest first.
+        TaskSortField::Due => {
+            format!("(t.due_date IS NULL) {dir}, t.due_date {dir}, t.created_at DESC, t.rowid DESC")
+        }
         TaskSortField::Priority => {
             format!("CASE t.priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END {dir}")
         }
@@ -124,10 +127,10 @@ pub(super) fn list_on(
     );
     // Text matching is done in Rust: SQLite's lower() and LIKE only fold ASCII case.
     let limit = filter.limit.map(|l| l as usize);
-    if words.is_none() {
-        if let Some(l) = limit {
-            sql.push_str(&format!(" LIMIT {l}"));
-        }
+    if words.is_none()
+        && let Some(l) = limit
+    {
+        sql.push_str(&format!(" LIMIT {l}"));
     }
 
     let mut stmt = conn.prepare(&sql)?;

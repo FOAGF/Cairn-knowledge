@@ -3,7 +3,7 @@
 // link); a page change shows its diff. Nothing is saved before *Confirm*. *Edit…* opens the normal
 // form, filled in: the new-task dialog; a comment or task change edited in the card, which
 // *Confirm* then saves; a page change as the page's unsaved changes in its editor.
-// Owned by the M6 actions agent; MessageView renders it for `message.proposal`.
+// MessageView renders it for `message.proposal`.
 import { ArrowRight, Check, ChevronDown, FilePen, ListChecks, Loader2, MessageSquare, Minus, Pencil, Plus, TriangleAlert, X } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
@@ -24,11 +24,12 @@ import { type Messages, useT } from '@/i18n'
 import { PRIORITY_ORDER, STATUS_ORDER, TINT_CLASS, TYPE_ORDER, typeLabel } from '@/lib/labels'
 import type { Priority, TaskType } from '@/lib/types'
 import { cn } from '@/lib/utils'
+import { useAppStore } from '@/store'
 import { askBeforeEditing, holdPageEdit, pendingPath } from '../creation/pending'
 import { TermSuggestions } from '../glossary/TermSuggestions'
 import { NewTaskDialog } from '../tasks/NewTaskDialog'
 import { DatePicker, LabelInput } from '../tasks/taskUi'
-import { PageDiff } from './PageDiff'
+import { PageDiff } from '@/components/shared/PageDiff'
 
 type Change<Op extends ProposedChange['op']> = Extract<ProposedChange, { op: Op }>
 
@@ -386,6 +387,11 @@ function RowView({
   // editing with the proposed text. It is saved there, so Confirm must not save it again.
   const editPage = async (c: Change<'update_page'>) => {
     try {
+      // Opening the same proposal again continues the user's edits instead of replacing them.
+      if (useAppStore.getState().pageEdit?.pageId === c.pageId) {
+        void setProposalRow(message.id, index, false)
+        return navigate(`/knowledge/${c.pageId}`)
+      }
       const page = await commands.getPage(c.pageId)
       if (page.updatedAt !== c.baseUpdatedAt) return void toast.error(tp.pageChanged)
       const choice = await askBeforeEditing(page.id)

@@ -31,7 +31,7 @@ export function useCategory(id: string | undefined) {
   })
 }
 
-/** Current cached list outside React (store actions, fake assistant code). Empty if not loaded yet. */
+/** Current cached list for code outside React (store actions). Empty if not loaded yet. */
 export function getCategoriesSnapshot(): Category[] {
   return queryClient.getQueryData<Category[]>(listKey) ?? EMPTY
 }
@@ -59,9 +59,8 @@ export function useSuggestCategoryKey() {
 }
 
 /**
- * Development only: inserts the prototype's sample categories that the not-yet-migrated mock screens
- * (tasks, pages, ...) refer to. Insert-if-missing in Rust, so it never overwrites user changes.
- * Remove together with the last mock area that uses these ids.
+ * Development only: inserts the sample categories that the dev seed's tasks and pages refer to.
+ * Insert-if-missing in Rust, so it never overwrites user changes.
  */
 export async function seedDevCategories(sample: SampleCategory[]) {
   const seeds = sample.filter((p) => !p.isGeneral).map(({ id, name, key, description, color, status, createdAt }) => ({ id, name, key, description, color, status, createdAt }))

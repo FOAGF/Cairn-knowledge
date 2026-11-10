@@ -145,7 +145,6 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             //
             // Search by meaning (M4)
             commands::search::search_hybrid,
-            commands::search::find_similar_pages,
             commands::search::get_index_progress,
             //
             // Creation flows (M5): conversations, files in the chat, checks, merge, task drafts
@@ -198,6 +197,14 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::logs::log_status,
             commands::logs::set_detailed_logs,
             commands::logs::log_ui_error,
+            //
+            // Tech news on Home (FR-HOME-7, D-92)
+            commands::news::news,
+            commands::news::fetch_news,
+            //
+            // What was opened last, for the suggestion lists (D-94)
+            commands::opened::record_opened,
+            commands::opened::recently_opened,
             //
             // Home (M7 redesign, D-54)
             commands::home::home_overview,
@@ -253,6 +260,8 @@ pub fn export_bindings(builder: &tauri_specta::Builder<tauri::Wry>) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // D-90: exports and backups record the build's version (build.rs).
+    cairn_core::export::set_app_version(env!("CAIRN_BUILD_VERSION"));
     let paths = cairn_core::DataPaths::new(cairn_core::paths::resolve_data_dir());
     let logs = logging::init(&paths.logs_dir());
     let builder = specta_builder();
@@ -340,6 +349,7 @@ pub fn run() {
             // M5: running LLM work that *Stop* can end, and uploads in progress.
             app.manage(Arc::new(llm::Jobs::default()));
             app.manage(commands::files::Uploads::default());
+            app.manage(commands::news::NewsFetch::default());
             app.manage(indexer::Indexer::start(app.handle().clone()));
             // D-82: a search model added later, and a download to resume.
             app.manage(search_model::SearchModel::start(app.handle().clone(), model_paths));
@@ -481,10 +491,7 @@ fn dev_script_env(app: tauri::AppHandle) {
 #[specta::specta]
 async fn automation_report(line: String) -> Result<(), ApiError> {
     use std::io::Write;
-    let refuse = |message: &str| ApiError {
-        kind: "invalid".into(),
-        message: message.into(),
-    };
+    let refuse = |message: &str| ApiError::invalid(message);
     if !automation_on() {
         return Err(refuse("Automation is off (CAIRN_AUTOMATION=1 is not set)."));
     }

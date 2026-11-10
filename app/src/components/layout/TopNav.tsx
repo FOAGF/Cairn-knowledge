@@ -35,7 +35,9 @@ export function TopNav() {
   const t = useT()
 
   return (
-    <header className="sticky top-0 z-30 border-b bg-surface/90 backdrop-blur">
+    // Opaque, without a backdrop blur: WebKitGTK sometimes didn't redraw the blur after the window
+    // came back from minimised, and the page showed through the bar.
+    <header className="sticky top-0 z-30 border-b bg-surface">
       <div className="mx-auto flex h-16 max-w-[1480px] items-center gap-6 px-6">
         <NavLink to="/" className="flex items-center gap-2">
           <CairnLogo className="size-8" />

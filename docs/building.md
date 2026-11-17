@@ -164,7 +164,7 @@ Only minor and major versions (`x.y.0`) are released and tagged. A patch version
 5. Open the draft it prints, look it over and press *Publish release*. GitHub publishes the tag `v<version>` then.
 
 - **The draft:** tag `v<version>`, in the GitHub repository of the `origin` remote (`CAIRN_PUBLISH_REPO=owner/name` overrides it), marked as a pre-release while the version is 0.x. From 1.0 on, a pre-release made from `develop` (CONTRIBUTING.md, "Branches") must be marked by hand: tick *Set as a pre-release* on the draft before publishing it. Running it again for the same version updates the draft; a published release is never changed.
-- **The notes:** the first release gets the README's introduction; later ones the version table's rows since the last published release. Then the README's download section for this version. Preview them with `packaging/publish.sh notes [last published version]`.
+- **The notes:** the first release gets the README's introduction; later ones the version's own row of the version table, under one header. That row sums up everything since the last release, the patch versions between them included; their own rows stay in the table as the history. Then the README's download section for this version. Preview them with `packaging/publish.sh notes [last published version]`.
 - **Needs** the GitHub command line tool, signed in: `sudo apt install gh`, then `gh auth login`.
 
 ### Running single steps

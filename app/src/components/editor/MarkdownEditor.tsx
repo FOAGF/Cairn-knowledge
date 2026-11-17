@@ -5,7 +5,7 @@ import { defaultKeymap, history, historyKeymap, isolateHistory } from '@codemirr
 import { markdown } from '@codemirror/lang-markdown'
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { EditorState, Transaction } from '@codemirror/state'
-import { drawSelection, EditorView, keymap, placeholder as cmPlaceholder } from '@codemirror/view'
+import { drawSelection, EditorView, keymap, placeholder as cmPlaceholder, tooltips } from '@codemirror/view'
 import { tags } from '@lezer/highlight'
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import { toast } from 'sonner'
@@ -154,9 +154,9 @@ function fileDropListeners(view: EditorView, pageCategory: () => string | undefi
  * page's layout: about 25 ms on the owner's machine, so a held Backspace (a repeat every 30 ms) fell
  * behind and went on deleting after the key was released. The box has a fixed height, set from the
  * editor's own height whenever that changes (a line added or removed), and `overflow: hidden`: to
- * WebKit that is a boundary the page's layout stops at. The popups are `position: fixed`
- * (CodeMirror's default), so the box doesn't clip them. Not `contain: size layout`, the same boundary:
- * inside a card with a shadow it made every frame of scrolling the page twice as slow.
+ * WebKit that is a boundary the page's layout stops at. The box would clip the popups, so they live
+ * outside it (`popupParent`). Not `contain: size layout`, the same boundary: inside a card with a
+ * shadow it made every frame of scrolling the page twice as slow.
  * Returns the cleanup.
  */
 function followHeight(box: HTMLElement, view: EditorView): () => void {
@@ -169,6 +169,16 @@ function followHeight(box: HTMLElement, view: EditorView): () => void {
   const observer = new ResizeObserver(sync)
   observer.observe(view.dom)
   return () => observer.disconnect()
+}
+
+/**
+ * Where the editor's popups (suggestions, the spelling tooltip) are placed: the dialog the editor is
+ * in, or the page's body. Not inside the editor: in WebKitGTK, CodeMirror switches its popups from
+ * `position: fixed` to `absolute` once one has been shown (its check for Safari also matches
+ * WebKitGTK), and the editor's box (`followHeight`) then cut them off.
+ */
+function popupParent(box: HTMLElement): HTMLElement {
+  return box.closest<HTMLElement>('[role="dialog"]') ?? document.body
 }
 
 const highlight = HighlightStyle.define([
@@ -265,6 +275,7 @@ export function MarkdownEditor({
           markdown(),
           syntaxHighlighting(highlight),
           EditorView.lineWrapping,
+          tooltips({ parent: popupParent(host.current!) }),
           baseTheme,
           EditorView.theme({ '.cm-content': { minHeight }, ...(small && { '&.cm-editor': { fontSize: '0.875rem' } }) }),
           cmPlaceholder(placeholder ?? ''),

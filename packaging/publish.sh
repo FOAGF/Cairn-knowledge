@@ -17,9 +17,10 @@
 # GitHub repository of `origin` (CAIRN_PUBLISH_REPO=
 # owner/name overrides it, e.g. for an SSH host alias), a pre-release while the version is 0.x. A draft of the
 # same version (a rehearsal) is updated in place: notes rewritten, files replaced.
-# Notes: the first release gets README's introduction; a later one the version table's rows
-# (docs/requirements.md §9.4) since the last published release, newest first. Then README's download
-# section for this version and how to check a file against SHA256SUMS.
+# Notes: the first release gets README's introduction; a later one its own row of the version table
+# (docs/requirements.md §9.4), under one header: that row sums up everything since the last release, the
+# patch versions between them included. Then README's download section for this version and how to check
+# a file against SHA256SUMS.
 # Needs the GitHub command line tool, signed in: sudo apt install gh && gh auth login.
 set -euo pipefail
 
@@ -102,7 +103,6 @@ from pathlib import Path
 repo, version, last, out = Path(sys.argv[1]), sys.argv[2], sys.argv[3], sys.argv[4]
 readme = (repo / "README.md").read_text(encoding="utf-8")
 spec = (repo / "docs" / "requirements.md").read_text(encoding="utf-8")
-num = lambda v: tuple(map(int, v.split(".")))
 
 def section(text, start, end):
     """The text from the line `start` up to (not including) the next line `end`."""
@@ -120,17 +120,23 @@ if last == "none":
     # The first release: what Cairn is (README up to its download section).
     parts.append(section(readme, "Cairn is ", "\n## Download"))
 else:
-    rows = []
+    # One header: the release's own row, which sums up everything since the last release (the patch
+    # versions' rows stay in the table as the history).
     table = section(spec, "### 9.4 Versions", "\n## ")
+    row = None
     for line in table.splitlines():
         cells = [c.strip() for c in re.split(r"(?<!\\)\|", line)]
-        if len(cells) >= 5 and re.fullmatch(r"\d+\.\d+\.\d+", cells[1]):
-            if num(last) < num(cells[1]) <= num(version):
-                rows.append((num(cells[1]), cells[1], ids.sub("", cells[2]), ids.sub("", cells[3])))
-    if not rows:
-        sys.exit(f"no row in the version table between {last} and {version}")
-    for _, v, title, content in sorted(rows, reverse=True):
-        parts.append(f"## {v}: {title}\n\n{content}")
+        if len(cells) >= 5 and cells[1] == version:
+            row = (ids.sub("", cells[2]), ids.sub("", cells[3]))
+    if not row:
+        sys.exit(f"no row for {version} in the version table")
+    # A table cell is one line: each "**Area:** ..." part of it becomes a bullet.
+    first, *areas = re.split(r"(?<=[.)])\s+(?=\*\*[^*]+:\*\*)", row[1])
+    if not first.startswith("**"):
+        bullets = [f"- {a}" for a in areas]
+    else:
+        first, bullets = "", [f"- {a}" for a in [first, *areas]]
+    parts.append("\n\n".join(p for p in [f"## {version}: {row[0]}", first, "\n".join(bullets)] if p))
 
 # Every release: the files and how to install them (README's download section, for this version).
 download = section(readme, "## Download", "\n## First start")

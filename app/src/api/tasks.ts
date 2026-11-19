@@ -115,7 +115,7 @@ export function useTaskVersions(taskId: string | undefined): TaskVersion[] {
   )
 }
 
-/** Working days and blocked days; `null` unless the task is done (FR-TASK-SUM-1). */
+/** Working days spent (in progress) and blocked days; `null` unless the task is done (FR-TASK-SUM-1, -4). */
 export function useCompletionSummary(taskId: string | undefined) {
   return useQuery({
     queryKey: ['tasks', 'summary', taskId],

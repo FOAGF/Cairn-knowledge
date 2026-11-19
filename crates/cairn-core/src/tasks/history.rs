@@ -2,7 +2,7 @@
 
 use rusqlite::{Connection, params};
 
-use super::workdays::{blocked_working_days, working_days_between};
+use super::workdays::{blocked_working_days, spent_working_days};
 use super::*;
 
 /// Today's version of the task: inserts or overwrites (FR-TASK-HI-1, -4).
@@ -68,7 +68,7 @@ pub(super) fn completion_summary(
         })
         .collect();
     Ok(Some(CompletionSummary {
-        working_days: working_days_between(start, end),
+        working_days: spent_working_days(start, end, &versions),
         blocked_days: blocked_working_days(start, end, &versions),
     }))
 }

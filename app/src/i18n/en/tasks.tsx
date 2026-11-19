@@ -156,7 +156,7 @@ export const tasks = {
     title: 'Completion summary',
     spent: (days: number) => plural(days, 'working day spent', 'working days spent'),
     blocked: (days: number) => plural(days, 'working day blocked', 'working days blocked'),
-    note: 'Counted by date, inclusive of the first and last day, Monday to Friday. Public holidays are not considered.',
+    note: 'Counted by date, Monday to Friday: days spent are the days that ended In progress, and the day it was done. Public holidays are not considered.',
   },
   labels: {
     clearDate: 'Clear date',

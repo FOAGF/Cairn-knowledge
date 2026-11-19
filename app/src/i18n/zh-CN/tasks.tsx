@@ -152,7 +152,7 @@ export const tasks: Messages['tasks'] = {
     title: '完成总结',
     spent: () => '工作日',
     blocked: () => '受阻天数',
-    note: '按日期计算，包括第一天和最后一天，只算周一至周五，不考虑公共假期。',
+    note: '按日期计算，只算周一至周五：工作日是当天结束时为“进行中”的日子，加上完成当天。不考虑公共假期。',
   },
   labels: {
     clearDate: '清除日期',

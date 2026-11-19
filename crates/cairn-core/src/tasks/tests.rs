@@ -2,7 +2,7 @@ use chrono::NaiveDate;
 use rusqlite::Connection;
 
 use super::query::list_on;
-use super::workdays::{blocked_working_days, working_days_between};
+use super::workdays::{blocked_working_days, spent_working_days};
 use super::*;
 use crate::categories;
 
@@ -1333,32 +1333,63 @@ fn list_is_fast_with_20000_tasks() {
 // ------------------------------------------------------------ working days
 
 #[test]
-fn working_days_inclusive_monday_to_friday() {
-    // 2026-10-12 is a Monday.
+fn spent_days_are_in_progress_days_and_the_completion_day() {
+    use TaskStatus::*;
+    let (start, end) = (d("2026-10-12"), d("2026-10-23")); // Mon..Fri of the next week
+    let v = |s: &str, st| (d(s), st);
+    // No history (to do throughout): only the completion day.
+    assert_eq!(spent_working_days(start, end, &[]), 1);
+    assert_eq!(spent_working_days(start, start, &[]), 1, "same day");
+    // In progress Wed 14, blocked Fri 16, in progress again Tue 20: Wed, Thu, Tue..Thu, and Fri 23 = 6.
+    let history = [
+        v("2026-10-14", InProgress),
+        v("2026-10-16", Blocked),
+        v("2026-10-20", InProgress),
+    ];
+    assert_eq!(spent_working_days(start, end, &history), 6);
+    // Order of the input doesn't matter.
+    let mut reversed = history;
+    reversed.reverse();
+    assert_eq!(spent_working_days(start, end, &reversed), 6);
+    // Done Tue 13 and reopened Mon 19: the days done in between don't count. Mon 12, Mon..Thu, Fri = 6.
     assert_eq!(
-        working_days_between(d("2026-10-12"), d("2026-10-12")),
+        spent_working_days(
+            start,
+            end,
+            &[
+                v("2026-10-12", InProgress),
+                v("2026-10-13", Done),
+                v("2026-10-19", InProgress)
+            ]
+        ),
+        6
+    );
+    // A version before the start sets the initial status: Mon 12..Tue 20 (7), back to to do, then Fri 23.
+    assert_eq!(
+        spent_working_days(
+            start,
+            end,
+            &[v("2026-10-01", InProgress), v("2026-10-21", Todo)]
+        ),
+        8
+    );
+    // Weekends never count, not even as the completion day.
+    assert_eq!(
+        spent_working_days(
+            d("2026-10-16"),
+            d("2026-10-17"),
+            &[v("2026-10-16", InProgress)]
+        ),
         1,
-        "same day"
-    );
-    assert_eq!(working_days_between(d("2026-10-12"), d("2026-10-16")), 5);
-    assert_eq!(
-        working_days_between(d("2026-10-12"), d("2026-10-18")),
-        5,
-        "weekend excluded"
-    );
-    assert_eq!(working_days_between(d("2026-10-12"), d("2026-10-19")), 6);
-    assert_eq!(
-        working_days_between(d("2026-10-16"), d("2026-10-19")),
-        2,
-        "Fri..Mon"
+        "Fri in progress, done Sat"
     );
     assert_eq!(
-        working_days_between(d("2026-10-17"), d("2026-10-18")),
+        spent_working_days(d("2026-10-17"), d("2026-10-18"), &[]),
         0,
         "weekend only"
     );
     assert_eq!(
-        working_days_between(d("2026-10-14"), d("2026-10-12")),
+        spent_working_days(d("2026-10-14"), d("2026-10-12"), &[]),
         0,
         "end before start"
     );
@@ -1424,15 +1455,15 @@ fn completion_summary_for_done_tasks() {
         None,
         "not done"
     );
-    // Wed: blocked; Thu: in progress; Fri 16: done. Blocked at the end of Wed only.
+    // Mon, Tue: to do; Wed: blocked; Thu: in progress; Fri 16: done. Spent Thu and Fri; blocked Wed.
     e.set_status(&t.id, TaskStatus::Blocked, &Stamp::on(d("2026-10-14")));
     e.set_status(&t.id, TaskStatus::InProgress, &Stamp::on(d("2026-10-15")));
     e.set_status(&t.id, TaskStatus::Done, &Stamp::on(d("2026-10-16")));
     assert_eq!(
         completion_summary(e.db.conn(), "AAA-1").unwrap(),
         Some(CompletionSummary {
-            working_days: 5,
-            blocked_days: 2 - 1
+            working_days: 2,
+            blocked_days: 1
         })
     );
 }
@@ -1467,11 +1498,11 @@ fn completion_summary_with_version_before_start_and_reopen() {
     let t = create_at(&mut e, &a, d("2026-10-09"));
     e.set_status(&t.id, TaskStatus::Blocked, &Stamp::on(d("2026-10-09")));
     e.set_status(&t.id, TaskStatus::Done, &Stamp::on(d("2026-10-13")));
-    // Fri blocked (1), weekend skipped, Mon blocked (carried, 1), Tue done.
+    // Fri blocked (1), weekend skipped, Mon blocked (carried, 1), Tue done: spent Tue only.
     assert_eq!(
         completion_summary(e.db.conn(), &t.id).unwrap(),
         Some(CompletionSummary {
-            working_days: 3,
+            working_days: 1,
             blocked_days: 2
         })
     );

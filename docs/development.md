@@ -121,6 +121,7 @@ sidecar/.venv/bin/python -m pytest sidecar/tests -q   # sidecar tests (about 50 
   - `CAIRN_EXIT_AFTER_SECS` closes the window the way its close button does, so the UI's close handling runs too.
   - If the window doesn't close within 5 s, it logs "did not close" and forces the exit.
 - **Screenshot:** `CAIRN_DATA_DIR=/tmp/x scripts/capture-window.sh out.png [VAR=value ...]` runs that build and captures only the window of that process (`xwd` + `scripts/xwd2png.py`).
+  - It opens the window through X11 (`GDK_BACKEND=x11`), because `xwd` can't see a native Wayland window; in a Wayland session it would find no window. A locked screen captures as blank white.
   - To set up a state first, pass `CAIRN_DEV_SCRIPT_FILE=<script>` with `CAIRN_DEV_SCRIPT_AFTER=5`, and `CAPTURE_AFTER_SECS` a few seconds later than the script needs; without `CAIRN_DEV_SCRIPT_AFTER` the script may start after the capture.
 - **Fresh data:** a fresh `CAIRN_DATA_DIR` gets the sample data in dev builds, inserted by the app shell's dev seed.
 - **Providers that need a key, in a probe:** start the debug build with `CAIRN_DEV_MEMORY_KEYS=1` (e.g. as an extra `VAR=value` of `ui-probe.sh`): API keys are kept in memory for that run, so `set_provider_key` never reaches the system keychain. Release builds ignore it.

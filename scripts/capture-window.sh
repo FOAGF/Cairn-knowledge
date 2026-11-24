@@ -10,11 +10,14 @@
 # The page shown is the devUrl baked into the last build. Bake one first, e.g. with your own Vite on 5190:
 #   CAIRN_DATA_DIR=/tmp/x CAIRN_EXIT_AFTER_SECS=2 cargo tauri dev --no-watch \
 #     --config '{"build":{"devUrl":"http://localhost:5190/knowledge"}}'
+#
+# The window is opened through X11 (GDK_BACKEND=x11): in a Wayland session a native window is invisible
+# to xwd, so no window would be found. A locked screen captures as blank white.
 set -u
 out=$1; shift
 here=$(cd "$(dirname "$0")" && pwd)
 cd "$here/.."
-env CAIRN_EXIT_AFTER_SECS="${CAIRN_EXIT_AFTER_SECS:-14}" \
+env CAIRN_EXIT_AFTER_SECS="${CAIRN_EXIT_AFTER_SECS:-14}" GDK_BACKEND=x11 \
   CAIRN_DEV_KNOWLEDGE_MODE="${CAIRN_DEV_KNOWLEDGE_MODE:-internal}" "$@" \
   nice -n 10 ./target/debug/cairn >"${out%.png}.log" 2>&1 &
 pid=$!
